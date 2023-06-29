@@ -1,44 +1,43 @@
 import numpy as np
-import nolds
 import matplotlib.pyplot as plt
 
-# Function to generate the logistic map
-def logistic_map(r, x):
-    return r * x * (1 - x)
 
-# Function to compute time series of the logistic map
-def compute_series(r, x_init, n, burn_in=1000):
-    x = x_init
-    # Burn in period
-    for _ in range(burn_in):
-        x = logistic_map(r, x)
-    # Compute series
-    series = np.empty(n)
-    for i in range(n):
-        x = logistic_map(r, x)
-        series[i] = x
-    return series
+def merge_tree(time_series_data):
+    n = len(time_series_data)
+    data = sorted([(x, i) for i, x in enumerate(time_series_data)], reverse=True)
 
-# Function to compute Lyapunov exponent for a range of r values, using nolds
-def compute_lyapunov(r_values, x_init, n, burn_in=1000):
-    lyapunov_exponents = np.empty_like(r_values)
-    for i, r in enumerate(r_values):
-        series = compute_series(r, x_init, n, burn_in)
-        lyapunov_exponents[i] = nolds.lyap_r(series)
-    return lyapunov_exponents
+    # each node starts as its own parent (root)
+    parent = list(range(n))
+
+    def find_root(i):
+        if i == parent[i]:
+            return i
+        parent[i] = find_root(parent[i])  # path compression
+        return parent[i]
+
+    def union(i, j):
+        ri, rj = find_root(i), find_root(j)
+        if ri != rj:
+            parent[max(ri, rj)] = min(ri, rj)  # merge into the smaller root
+
+    # process points from high to low
+    for x, i in data:
+        if i > 0 and time_series_data[i - 1] >= x:
+            union(i, i - 1)
+        if i + 1 < n and time_series_data[i + 1] >= x:
+            union(i, i + 1)
+
+    # now find the roots for each node
+    roots = [find_root(i) for i in range(n)]
+
+    return roots
 
 
-# Parameters for the logistic map and Lyapunov computation
-x_init = 0.5  # initial x value
-n = 10000  # length of time series
-burn_in = 1000  # burn in period
-# r_values = np.linspace(3.5, 4.0, 1000)[:-1]  # range of r values
-r_values = np.random.uniform(3.5, 4.0, 1000)
+time_series_data = np.array([1, 5, 2, 8, 3, 6, 9, 7, 4, 0])
+roots = merge_tree(time_series_data)
 
-# Compute and plot Lyapunov exponent
-lyapunov_exponents = compute_lyapunov(r_values, x_init, n, burn_in)
-plt.scatter(r_values, lyapunov_exponents, s=2**2)
-plt.xlabel('r')
-plt.ylabel('Lyapunov exponent')
-plt.grid(True)
+plt.plot(time_series_data)
+for i, r in enumerate(roots):
+    if i != r:
+        plt.plot([i, r], [time_series_data[i], time_series_data[r]], "r-")
 plt.show()

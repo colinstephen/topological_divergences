@@ -1,47 +1,63 @@
 import numpy as np
 import gudhi as gd
+import higra as hg
 import gudhi.wasserstein
 import matplotlib.pyplot as plt
+import vectorization as vec
+
+############################
+## Time series generators ##
+############################
 
 
-def logistic_map(r, x0, n_iterations, skip_iterations=1000):
+def logistic_map(r, x0, n_iterations, skip_iterations=10000):
     """
     Generates a logistic map time series.
 
     Parameters
     ----------
     r : float
-        Parameter r representing the growth rate where 0 < r < 4
+        Parameter r representing the growth rate where 0.0 < r <= 4.0
     x0 : float
         Initial value where 0 < x0 < 1
     n_iterations : int
-        Number of iterations to generate the time series for.
-    skip_iterations : int
-        Number of iterations to ignore while the system settles.
+        Number of iterations in the returned sequence.
+    skip_iterations : int, optional, default=10000
+        Number of iterations to ignore for burn in.
 
     Returns
     -------
     np.array
         A NumPy array containing the generated time series.
     """
+    if not (0 < r <= 4.0):
+        raise ValueError("Parameter r out of range")
+
     if not (0 < x0 < 1):
-        raise ValueError("x0 must be strictly between 0 and 1")
+        raise ValueError("Initial value x0 out of range")
 
+    # initialise value of map
     x = x0
+
+    def apply_map(x):
+        return r * x * (1 - x)
+
+    # ignore burn in iterations
     for i in range(skip_iterations):
-        x = r * x * (1 - x)
+        x = apply_map(x)
 
+    # initialise an array to return
     time_series = np.zeros(n_iterations)
-    time_series[0] = x
 
+    # generate the values of the map
+    time_series[0] = x
     for i in range(1, n_iterations):
-        x = time_series[i - 1]
-        time_series[i] = r * x * (1 - x)
+        time_series[i] = apply_map(time_series[i - 1])
 
     return time_series
 
 
-def white_noise(length, mean=0, std_dev=1, seed=None):
+def white_noise(length, mean=0, std_dev=1):
     """
     Generates a sequence of white noise samples of specified length.
 
@@ -53,24 +69,24 @@ def white_noise(length, mean=0, std_dev=1, seed=None):
         The mean of the white noise distribution (default: 0).
     std_dev : float, optional
         The standard deviation of the white noise distribution (default: 1).
-    seed : int, optional
-        The random seed for reproducibility (default: None).
 
     Returns
     -------
-    white_noise : numpy.ndarray
+    numpy.ndarray
         A numpy array of white noise samples.
     """
-    if seed is not None:
-        np.random.seed(seed)
 
-    white_noise = np.random.normal(mean, std_dev, length)
-    return white_noise
+    return np.random.normal(mean, std_dev, length)
 
 
-def create_sublevel_set_filtration(time_series):
+#####################################################
+## Persistent homology and merge tree computations ##
+#####################################################
+
+
+def sublevel_set_filtration(time_series):
     """
-    Creates the level set filtration for the given time series based on the specified filtration type.
+    Creates the sub level set filtration for the given time series based on the specified filtration type.
 
     Parameters
     ----------
@@ -79,8 +95,8 @@ def create_sublevel_set_filtration(time_series):
 
     Returns
     -------
-    filtration : list
-        A list of tuples (simplex, value) representing the level set filtration.
+    list
+        The filtration: a list of (simplex, value) pairs representing the simplices in the sublevel set filtration.
     """
 
     filtration = []
@@ -96,22 +112,42 @@ def create_sublevel_set_filtration(time_series):
     return filtration
 
 
-def compute_persistent_homology_simplex_tree(time_series):
+def superlevel_set_filtration(time_series):
     """
-    Computes the persistent homology of the given time series and returns the simplex tree.
+    Creates the super level set filtration for the given time series based on the specified filtration type.
 
     Parameters
     ----------
     time_series : array_like
-        A list or numpy array of the input time series
+        A list or numpy array of the input time series.
+
+    Returns
+    -------
+    list
+        The filtration: a list of (simplex, value) pairs representing the superlevel set filtration.
+    """
+
+    # invert the sequence (make peaks into pits and vice versa)
+    time_series = -1 * np.array(time_series)
+
+    # apply the sublevel algorithm to the inverted sequence
+    return sublevel_set_filtration(time_series)
+
+
+def persistent_homology_simplex_tree(filtration):
+    """
+    Construct a Gudhi simplex tree representing the given filtration.
+
+    Parameters
+    ----------
+    filtration : list
+        List of (simplex, value) tuples in the filtration
 
     Returns
     -------
     gudhi.SimplexTree
         A Gudhi SimplexTree object
     """
-
-    filtration = create_sublevel_set_filtration(time_series)
 
     # Create a simplex tree object
     st = gd.SimplexTree()
@@ -120,72 +156,176 @@ def compute_persistent_homology_simplex_tree(time_series):
     for simplex, value in filtration:
         st.insert(simplex, value)
 
-    # Compute persistent homology
-    st.persistence()
-
     return st
 
 
-def compute_extended_persistent_homology_simplex_tree(time_series):
+def persistence_diagram_from_simplex_tree(
+    simplex_tree, dimension=0, superlevel_filtration=False
+):
     """
-    Computes the extended persistent simplex tree of a time series.
+    Construct the persistent homology diagram induced by the given simplex tree.
 
     Parameters
     ----------
-    time_series : array_like
-        A list or numpy array of the input time series.
+    simplex_tree : a Gudhi SimplexTree object
+    dimension : integer, optional
+        The dimension of the homology features to be returned.
+    superlevel_filtration : Boolean, optional
+        Does the simplex tree arise from a superlevel set filtration?
+        Default is `False` implying we have a sublevel set simplex tree.
 
     Returns
     -------
-    gudhi.SimplexTree
-        A Gudhi SimplexTree object
+    list
+        The persistence diagram: a list of the persistent homology (birth, death) pairs in the given dimension.
+
+    Notes
+    -----
+    When superlevel set adjustment is applied by setting `superlevel_filtration=True`, the intervals returned are (-birth, -death) rather than (birth, death). This is to account for decreasing function values used when building a superlevel set filtration, and the assumption that a simplex tree corresponding to a superlevel set filtration on $f(x)$ has been built using the sublevel set filtration of the negated function $-f(x)$. Note that in this situation critical values will satisfy `death<birth`.
     """
 
-    st = compute_persistent_homology_simplex_tree(time_series)
-    st.extend_filtration()
-    return st
+    if not (dimension >= 0):
+        raise ValueError("Requested homology dimension out of range")
 
+    simplex_tree.compute_persistence()
+    persistence_diagram = simplex_tree.persistence_intervals_in_dimension(dimension)
 
-def compute_extended_persistent_homology(time_series):
-    """
-    Computes the extended persistent homology diagrams of the given time series.
+    # remove nonfinite points
+    persistence_diagram = [
+        (b, d) for (b, d) in persistence_diagram if np.isfinite(b) and np.isfinite(d)
+    ]
 
-    Parameters
-    ----------
-    time_series : array_like
-        A list or numpy array of the input time series.
-
-    Returns
-    -------
-    persistence_diagrams : list
-        A list of the ordinary, extended, and relative persistence diagams.
-    """
-
-    simplex_tree = compute_extended_persistent_homology_simplex_tree(time_series)
-    persistence_diagrams = simplex_tree.extended_persistence(min_persistence=1e-5)
-
-    return persistence_diagrams[:2]
-
-
-def compute_persistent_homology(time_series):
-    """
-    Computes the persistent homology diagram of the given time series.
-
-    Parameters
-    ----------
-    time_series : array_like
-        A list or numpy array of the input time series.
-
-    Returns
-    -------
-    persistence_diagram : list
-        A list of persistent homology intervals.
-    """
-
-    simplex_tree = compute_persistent_homology_simplex_tree(time_series)
-    persistence_diagram = simplex_tree.persistence_intervals_in_dimension(0)
+    # reflip the axes if the filtration was built with superlevels
+    if superlevel_filtration:
+        persistence_diagram = [(-b, -d) for (b, d) in persistence_diagram]
 
     return persistence_diagram
+
+
+def flip_super_and_sub_level_persistence_points(persistence_diagram):
+    """
+    Reflect the points in a persistence diagram across the birth=death diagonal.
+
+    Parameters
+    ----------
+    persistence_diagram : list
+        A list of the persistent homology (birth, death) intervals in the given dimension.
+
+    Returns
+    -------
+    list
+        A list of the persistent homology (death, birth) intervals in the given dimension.
+
+    Notes
+    -----
+    Use this function to make superlevel and sublevel set persistence diagrams comparable using standard persistence diagram metrics.
+    """
+
+    return [(d, b) for (b, d) in persistence_diagram]
+
+
+############################################
+## Vectorisations of persistence diagrams ##
+############################################
+
+
+def persistence_statistics_vector(persistence_diagram):
+    pass
+
+
+def entropy_summary_function(persistence_diagram):
+    pass
+
+
+def betti_curve_function(persistence_diagram):
+    pass
+
+
+def persistence_silhouette_function(persistence_diagram):
+    pass
+
+
+def persistence_lifespan_curve_function(persistence_diagram):
+    pass
+
+
+def persistence_image(persistence_diagram):
+    pass
+
+
+#################################
+## Graph-based representations ##
+#################################
+
+
+def time_series_chain_graph(time_series, edge_function=None):
+    """
+    Generate a chain graph representation of a time series.
+
+    Parameters
+    ----------
+    time_series : array_like
+        Sequence of values in the time series.
+    edge_function : [int, int] -> int
+        Optional. A function mapping edge vertex values to an edge weight.
+        Defaults to minimum.
+
+    Returns
+    -------
+    higra.UndirectedGraph
+        A Higra graph object.
+
+    Summary
+    -------
+    Given a discrete time series T of length |T|=N, generate a chain graph whose nodes {0, 1, ..., N-1} are labelled with the time series values T[0], T[1], ..., T[N-1], and whose edges {(0,1), (1,2), ..., (N-2,N-1)} are labelled with the minimum value of the incident nodes.
+    """
+
+
+################################
+## Tree-based representations ##
+################################
+
+
+def merge_tree_from_time_series(time_series, superlevel_filtration=False):
+    """
+    Given a discrete time series compute the merge tree of its piecewise linear interpolation.
+
+    Parameters
+    ----------
+    time_series : array_like
+        List or numpy array of time series values.
+    superlevel_filtration : boolean, optional
+        Generate the superlevel set filtration merge tree? Default is the sublevel set filtration merge tree.
+    """
+
+    pass
+
+
+###########################################
+## Horizontal visibility representations ##
+###########################################
+
+
+def hvg_from_time_series(time_series, weighted_output=False):
+    pass
+
+
+############################
+## Vectorisations of HVGs ##
+############################
+
+
+def hvg_degree_distribution(hvg, max_degree=100):
+    pass
+
+
+def hvg_statistics_vector(hvg):
+    pass
+
+
+###########################################################################
+## Divergences of superlevel and sublevel set filtration representations ##
+###########################################################################
 
 
 def compute_extended_persistence_divergence(ordinary_pd, relative_pd):
@@ -200,7 +340,6 @@ def compute_extended_persistence_divergence(ordinary_pd, relative_pd):
 def plot_extended_persistence_diagrams(
     persistence_diagrams, title="Extended Persistence Diagrams"
 ):
-
     dgms = persistence_diagrams
     fig, axs = plt.subplots(1, 2, figsize=(10, 5))
     axs[0].scatter(
@@ -307,7 +446,6 @@ def main():
     """
 
     def run_example(time_series):
-
         diagram = compute_persistent_homology(time_series)
         extended_diagrams = compute_extended_persistent_homology(time_series)
         plot_time_series(time_series)
@@ -336,7 +474,7 @@ def main():
     n_iterations = 10000
     # rr = np.linspace(r_min, r_max, r_count + 1)[:-1]  # exclude the max value
     rr = np.random.uniform(r_min, r_max, r_count)
-    # xx0 = np.linspace(x0_min, x0_max, x0_count) 
+    # xx0 = np.linspace(x0_min, x0_max, x0_count)
     xx0 = [0.5]
     x0_count = len(xx0)
     divs = np.zeros((r_count, x0_count))
