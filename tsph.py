@@ -9,17 +9,17 @@ from scipy.cluster import hierarchy
 
 # Avoid namespace issues in Jupyter notebooks when using `from tsph import *`
 __all__ = [
-    "logistic_map",
-    "white_noise",
     "flip_super_and_sub_level_persistence_points",
-    "persistence_diagram_from_time_series",
+    "logistic_map",
     "merge_tree_from_time_series",
-    "plot_merge_tree_as_graph",
+    "persistence_diagram_from_time_series",
+    "plot_extended_persistence_diagrams",
     "plot_merge_tree_as_dendrogram",
     "plot_merge_tree_as_dendrogram_scipy",
-    "plot_extended_persistence_diagrams",
+    "plot_merge_tree_as_graph",
     "plot_persistence_diagram",
-    "plot_time_series"
+    "plot_time_series",
+    "white_noise",
 ]
 
 ############################
