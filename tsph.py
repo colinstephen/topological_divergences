@@ -5,6 +5,13 @@ import gudhi.wasserstein
 import matplotlib.pyplot as plt
 import vectorization as vec
 
+# Avoid namespace issues in Jupyter notebooks when using `from tsph import *`
+__all__ = [
+    "flip_super_and_sub_level_persistence_points",
+    "persistence_diagram_from_time_series",
+    "merge_tree_from_time_series"
+]
+
 ############################
 ## Time series generators ##
 ############################
@@ -287,7 +294,7 @@ def persistence_image(persistence_diagram):
 
 def _chain_graph(number_of_vertices):
     """
-    Helper function. Build a chain graph of the given length.
+    Helper function. Build a simple chain graph of the given length.
 
     Parameters
     ----------
@@ -307,7 +314,7 @@ def _chain_graph(number_of_vertices):
     return graph
 
 
-def _time_series_chain_graph(time_series):
+def _chain_graph_from_time_series(time_series):
     """
     Helper function. Generate a chain graph representation of a time series.
 
@@ -437,7 +444,7 @@ def merge_tree_from_time_series(time_series, superlevel_filtration=False):
     time_series = -1 * np.array(time_series) if superlevel_filtration else time_series
 
     # apply Higra's component tree algorithm over a time series chain graph
-    chain_graph, vertex_weights = _time_series_chain_graph(time_series)
+    chain_graph, vertex_weights = _chain_graph_from_time_series(time_series)
     tree, altitudes = hg.component_tree_min_tree(chain_graph, vertex_weights)
 
     # reflip the node altitudes if we flipped the time series originally
