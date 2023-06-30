@@ -1,15 +1,25 @@
 import higra as hg
 import numpy as np
 import gudhi as gd
+import networkx as nx
 import gudhi.wasserstein
 import matplotlib.pyplot as plt
 import vectorization as vec
+from scipy.cluster import hierarchy
 
 # Avoid namespace issues in Jupyter notebooks when using `from tsph import *`
 __all__ = [
+    "logistic_map",
+    "white_noise",
     "flip_super_and_sub_level_persistence_points",
     "persistence_diagram_from_time_series",
-    "merge_tree_from_time_series"
+    "merge_tree_from_time_series",
+    "plot_merge_tree_as_graph",
+    "plot_merge_tree_as_dendrogram",
+    "plot_merge_tree_as_dendrogram_scipy",
+    "plot_extended_persistence_diagrams",
+    "plot_persistence_diagram",
+    "plot_time_series"
 ]
 
 ############################
@@ -264,7 +274,7 @@ def persistence_diagram_from_time_series(time_series, superlevel_filtration=Fals
 
 
 def persistence_statistics_vector(persistence_diagram):
-    pass
+    return vec.GetPersStats(persistence_diagram)
 
 
 def entropy_summary_function(persistence_diagram):
@@ -334,7 +344,6 @@ def _chain_graph_from_time_series(time_series):
     """
 
     return _chain_graph(len(time_series)), np.array(time_series)
-
 
 
 ################################
@@ -454,43 +463,67 @@ def merge_tree_from_time_series(time_series, superlevel_filtration=False):
     merge_tree, merge_tree_altitudes = _higra_component_tree_2_merge_tree(tree, altitudes)
 
     return merge_tree, merge_tree_altitudes
-    
 
 
-###########################################
-## Horizontal visibility representations ##
-###########################################
+##############
+## Plotting ##
+##############
+
+def plot_merge_tree_as_graph(tree, altitudes, with_labels=False, node_size=5):
+    """
+    Use NetworkX to plot the merge tree and label vertices with their altitudes.
+
+    Paramaters
+    ----------
+    tree : higra.Tree
+        The merge tree to plot
+    altitudes : array
+        The altitudes of the vertices in the tree
+
+    Returns
+    -------
+    None
+    """
+
+    nx_tree = nx.Graph()
+
+    for vertex in tree.vertices():
+        nx_tree.add_node(vertex)
+    for edge in tree.edges():
+        nx_tree.add_edge(edge[0], edge[1])
+
+    labels = {vertex: altitude for vertex, altitude in zip(tree.vertices(), altitudes)}
+    nx.draw_kamada_kawai(nx_tree, with_labels=with_labels, labels=labels, node_color='darkblue', node_size=node_size)
+    plt.show()
 
 
-def hvg_from_time_series(time_series, weighted_output=False):
-    pass
+def plot_merge_tree_as_dendrogram(tree, altitudes, superlevel_filtration=False):
+    """
+    Use Higra to plot the dendrogram of the given merge tree.
+
+    Paramaters
+    ----------
+    tree : higra.Tree
+        The merge tree to plot
+    altitudes : array
+        The altitudes of the vertices in the tree
+
+    Returns
+    -------
+    None
+    """
+
+    # Higra expects clusters to merge at increasing altitudes
+    if superlevel_filtration:
+        altitudes = -1 * altitudes + np.max(altitudes)
+
+    hg.plot_partition_tree(hg.Tree(tree.parents()), altitudes=altitudes)
 
 
-############################
-## Vectorisations of HVGs ##
-############################
-
-
-def hvg_degree_distribution(hvg, max_degree=100):
-    pass
-
-
-def hvg_statistics_vector(hvg):
-    pass
-
-
-###########################################################################
-## Divergences of superlevel and sublevel set filtration representations ##
-###########################################################################
-
-
-def compute_extended_persistence_divergence(ordinary_pd, relative_pd):
-    ordinary_pd = [(b, d) for (_, (b, d)) in ordinary_pd]
-    relative_pd = [(d, b) for (_, (b, d)) in relative_pd]
-    ordinary_pd = np.array(ordinary_pd)
-    relative_pd = np.array(relative_pd)
-    # return gudhi.wasserstein.wasserstein_distance(ordinary_pd, relative_pd)
-    return gd.bottleneck_distance(ordinary_pd, relative_pd)
+def plot_merge_tree_as_dendrogram_scipy(tree, altitudes, superlevel_filtration=False, dendrogram_params=None):
+    Z = hg.binary_hierarchy_to_scipy_linkage_matrix(hg.Tree(tree.parents()), altitudes)
+    dn = hierarchy.dendrogram(Z, **dendrogram_params)
+    plt.show()
 
 
 def plot_extended_persistence_diagrams(
@@ -572,6 +605,45 @@ def plot_persistence_diagram(
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.show()
+
+
+
+###########################################
+## Horizontal visibility representations ##
+###########################################
+
+
+def hvg_from_time_series(time_series, weighted_output=False):
+    pass
+
+
+############################
+## Vectorisations of HVGs ##
+############################
+
+
+def hvg_degree_distribution(hvg, max_degree=100):
+    pass
+
+
+def hvg_statistics_vector(hvg):
+    pass
+
+
+###########################################################################
+## Divergences of superlevel and sublevel set filtration representations ##
+###########################################################################
+
+
+def compute_extended_persistence_divergence(ordinary_pd, relative_pd):
+    ordinary_pd = [(b, d) for (_, (b, d)) in ordinary_pd]
+    relative_pd = [(d, b) for (_, (b, d)) in relative_pd]
+    ordinary_pd = np.array(ordinary_pd)
+    relative_pd = np.array(relative_pd)
+    # return gudhi.wasserstein.wasserstein_distance(ordinary_pd, relative_pd)
+    return gd.bottleneck_distance(ordinary_pd, relative_pd)
+
+
 
 
 def autocorrelation(sequence):
