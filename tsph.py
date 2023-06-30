@@ -84,9 +84,9 @@ def white_noise(length, mean=0, std_dev=1):
 #####################################################
 
 
-def sublevel_set_filtration(time_series):
+def _sublevel_set_filtration(time_series):
     """
-    Creates the sub level set filtration for the given time series based on the specified filtration type.
+    Creates the sublevel set filtration for the given time series.
 
     Parameters
     ----------
@@ -112,9 +112,9 @@ def sublevel_set_filtration(time_series):
     return filtration
 
 
-def superlevel_set_filtration(time_series):
+def _superlevel_set_filtration(time_series):
     """
-    Creates the super level set filtration for the given time series based on the specified filtration type.
+    Creates the superlevel set filtration for the given time series.
 
     Parameters
     ----------
@@ -131,10 +131,10 @@ def superlevel_set_filtration(time_series):
     time_series = -1 * np.array(time_series)
 
     # apply the sublevel algorithm to the inverted sequence
-    return sublevel_set_filtration(time_series)
+    return _sublevel_set_filtration(time_series)
 
 
-def persistent_homology_simplex_tree(filtration):
+def _persistent_homology_simplex_tree(filtration):
     """
     Construct a Gudhi simplex tree representing the given filtration.
 
@@ -159,7 +159,7 @@ def persistent_homology_simplex_tree(filtration):
     return st
 
 
-def persistence_diagram_from_simplex_tree(
+def _persistence_diagram_from_simplex_tree(
     simplex_tree, dimension=0, superlevel_filtration=False
 ):
     """
@@ -181,7 +181,8 @@ def persistence_diagram_from_simplex_tree(
 
     Notes
     -----
-    When superlevel set adjustment is applied by setting `superlevel_filtration=True`, the intervals returned are (-birth, -death) rather than (birth, death). This is to account for decreasing function values used when building a superlevel set filtration, and the assumption that a simplex tree corresponding to a superlevel set filtration on $f(x)$ has been built using the sublevel set filtration of the negated function $-f(x)$. Note that in this situation critical values will satisfy `death<birth`.
+    1. When superlevel set adjustment is applied by setting `superlevel_filtration=True`, the intervals returned are (-birth, -death) rather than (birth, death). This is to account for decreasing function values used when building a superlevel set filtration, and the assumption that a simplex tree corresponding to a superlevel set filtration on `f(x)` has been built using the sublevel set filtration of the negated function `-f(x)`. Note that in this situation critical values will satisfy `death<birth`.
+    2. The infinite point (corresponding to the global minimum) is removed from the resulting set of points, to ensure downstream functions such as entropy always have finite data to work with.
     """
 
     if not (dimension >= 0):
@@ -222,6 +223,32 @@ def flip_super_and_sub_level_persistence_points(persistence_diagram):
     """
 
     return [(d, b) for (b, d) in persistence_diagram]
+
+
+def persistence_diagram_from_time_series(time_series, superlevel_filtration=False):
+    """
+    Compute the persistence diagram of the piecewise linear interpolation of a discrete time series.
+
+    Parameters
+    ----------
+    time_series : array_like
+        The discrete time series over which to compute persistent homology.
+    superlevel_filtration : boolean, optional
+        Is this diagram for a superlevel set filtration? Default: sublevel set filtration.
+    """
+
+    filter_function = (
+        _superlevel_set_filtration
+        if superlevel_filtration
+        else _sublevel_set_filtration
+    )
+    filtration = filter_function(time_series)
+    simplex_tree = _persistent_homology_simplex_tree(filtration)
+    persistence_diagram = _persistence_diagram_from_simplex_tree(
+        simplex_tree, superlevel_filtration=superlevel_filtration
+    )
+
+    return persistence_diagram
 
 
 ############################################
