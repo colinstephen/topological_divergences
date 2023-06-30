@@ -507,6 +507,8 @@ def plot_merge_tree_as_dendrogram(tree, altitudes, superlevel_filtration=False):
         The merge tree to plot
     altitudes : array
         The altitudes of the vertices in the tree
+    superlevel_filtration : Boolean
+        Is the merge tree from a superlevel set filtration?
 
     Returns
     -------
@@ -521,8 +523,28 @@ def plot_merge_tree_as_dendrogram(tree, altitudes, superlevel_filtration=False):
 
 
 def plot_merge_tree_as_dendrogram_scipy(tree, altitudes, superlevel_filtration=False, dendrogram_params=None):
+    """
+    Plot a dendrogram of a merge tree direcly with Scipy, bypassing Higra, to allow for custom output.
+
+    Parameters
+    ----------
+    tree : higra.Tree
+        The merge tree to plot
+    altitudes : array
+        The altitudes of the vertices in the tree
+    superlevel_filtration : Boolean
+        Is the merge tree from a superlevel set filtration?
+    dendrogram_params : dict
+        Kwargs to pass to the Scipy `hierarchy.dendrogram()` method
+
+    Returns
+    -------
+    None
+    """
     Z = hg.binary_hierarchy_to_scipy_linkage_matrix(hg.Tree(tree.parents()), altitudes)
-    dn = hierarchy.dendrogram(Z, **dendrogram_params)
+    if dendrogram_params is None:
+        dendrogram_params = {}
+    hierarchy.dendrogram(Z, **dendrogram_params)
     plt.show()
 
 
