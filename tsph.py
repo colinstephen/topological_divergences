@@ -1,6 +1,6 @@
+import higra as hg
 import numpy as np
 import gudhi as gd
-import higra as hg
 import gudhi.wasserstein
 import matplotlib.pyplot as plt
 import vectorization as vec
@@ -285,32 +285,135 @@ def persistence_image(persistence_diagram):
 #################################
 
 
-def time_series_chain_graph(time_series, edge_function=None):
+def _chain_graph(number_of_vertices):
     """
-    Generate a chain graph representation of a time series.
+    Helper function. Build a chain graph of the given length.
+
+    Parameters
+    ----------
+    number_of_vertices : int
+        How long the resulting chain should be.
+
+    Returns
+    -------
+    higra.UndirectedGraph
+        A Higra graph object representing the chain.
+    """
+
+    graph = hg.UndirectedGraph(number_of_vertices)
+    vertices = np.arange(number_of_vertices)
+    graph.add_edges(vertices[:-1], vertices[1:])
+
+    return graph
+
+
+def _time_series_chain_graph(time_series):
+    """
+    Helper function. Generate a chain graph representation of a time series.
 
     Parameters
     ----------
     time_series : array_like
         Sequence of values in the time series.
-    edge_function : [int, int] -> int
-        Optional. A function mapping edge vertex values to an edge weight.
-        Defaults to minimum.
 
     Returns
     -------
-    higra.UndirectedGraph
-        A Higra graph object.
+    tuple : (chain_graph, vertex_weights)
+        A Higra graph object and an array of its vertex weights.
 
     Summary
     -------
-    Given a discrete time series T of length |T|=N, generate a chain graph whose nodes {0, 1, ..., N-1} are labelled with the time series values T[0], T[1], ..., T[N-1], and whose edges {(0,1), (1,2), ..., (N-2,N-1)} are labelled with the minimum value of the incident nodes.
+    Given a discrete time series `T` of length `|T|=N`, generate a chain graph whose nodes `{0, 1, ..., N-1}` are labelled with the time series values `T[0], T[1], ..., T[N-1]`.
     """
+
+    return _chain_graph(len(time_series)), np.array(time_series)
+
 
 
 ################################
 ## Tree-based representations ##
 ################################
+
+
+def _higra_component_tree_2_merge_tree(tree, altitudes):
+    """
+    Helper function. Convert a Higra component tree to a Persistent Homology merge tree.
+
+    Parameters
+    ----------
+    tree : higra.Tree
+        The Higra component tree to be converted
+    altitudes : array
+        The altitudes of nodes in the tree
+
+    Returns
+    -------
+    tuple : (higra.Tree, array)
+        The persistent homology merge tree and its node altitudes
+    """
+
+    # prune then smooth the incoming component tree (NB: order of these operations matters)
+    pruned_tree, pruned_tree_altitudes = _remove_redundant_leaves(tree, altitudes)
+    smoothed_tree, smoothed_tree_altitudes = _remove_degree_two_vertices(pruned_tree, pruned_tree_altitudes)
+
+    return smoothed_tree, smoothed_tree_altitudes
+
+
+def _remove_degree_two_vertices(tree, altitudes):
+    """
+    Helper function. Simplify a tree by removing any internal degree-two vertices.
+
+    Parameters
+    ----------
+    tree : higra.Tree
+        The raw tree to be simplified
+    altitudes : array
+        The altitudes of nodes in the tree
+
+    Returns
+    -------
+    tuple : (higra.Tree, array)
+        The simplified tree and remaining altitudes
+    """
+
+    degrees = np.array([tree.degree(v) for v in tree.vertices()])
+    filter = np.array(degrees == 2)
+    smoothed_tree, node_map = hg.simplify_tree(tree, filter)
+    smoothed_tree_altitudes = altitudes[node_map]
+
+    return smoothed_tree, smoothed_tree_altitudes
+
+
+def _remove_redundant_leaves(tree, altitudes):
+    """
+    Helper function. Simplify a tree by removing any leaves at the same altitude as their parent.
+
+    Parameters
+    ----------
+    tree : higra.Tree
+        The raw tree to be simplified
+    altitudes : array
+        The altitudes of the nodes in the tree
+
+    Returns
+    -------
+    tuple : (higra.Tree, altitudes)
+        The simplified tree and remaining altitudes
+    """
+    
+    # compute outgoing edge weights in the tree based on altitudes
+    weights = altitudes - altitudes[tree.parents()]
+    
+    # create a filter based on whether an outgoing weight is zero
+    filter = np.array(weights == 0)
+
+    # use the filter in the Higra simplify method
+    pruned_tree, node_map = hg.simplify_tree(tree, filter, process_leaves=True)
+
+    # use the resulting node map to the original tree to get the altitudes
+    pruned_tree_altitudes = altitudes[node_map]
+
+    return pruned_tree, pruned_tree_altitudes
 
 
 def merge_tree_from_time_series(time_series, superlevel_filtration=False):
@@ -323,9 +426,28 @@ def merge_tree_from_time_series(time_series, superlevel_filtration=False):
         List or numpy array of time series values.
     superlevel_filtration : boolean, optional
         Generate the superlevel set filtration merge tree? Default is the sublevel set filtration merge tree.
+    
+    Returns
+    -------
+    tuple : (higra.CptHierarchy, array)
+        Tuple containing the Higra tree structure, of type higra.CptHierarchy, and an array of its node altitudes.
     """
 
-    pass
+    # flip the time series values if we're doing a superlevel filtration
+    time_series = -1 * np.array(time_series) if superlevel_filtration else time_series
+
+    # apply Higra's component tree algorithm over a time series chain graph
+    chain_graph, vertex_weights = _time_series_chain_graph(time_series)
+    tree, altitudes = hg.component_tree_min_tree(chain_graph, vertex_weights)
+
+    # reflip the node altitudes if we flipped the time series originally
+    altitudes = -1 * np.array(altitudes) if superlevel_filtration else altitudes
+
+    # simplify the component tree to retain only persistence merge tree information
+    merge_tree, merge_tree_altitudes = _higra_component_tree_2_merge_tree(tree, altitudes)
+
+    return merge_tree, merge_tree_altitudes
+    
 
 
 ###########################################
