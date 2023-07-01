@@ -6,13 +6,15 @@ import gudhi.wasserstein
 import matplotlib.pyplot as plt
 import vectorization as vec
 from scipy.cluster import hierarchy
+from decorated_merge_trees.DMT_tools import MergeTree
 
 # Avoid namespace issues in Jupyter notebooks when using `from tsph import *`
 __all__ = [
     "flip_super_and_sub_level_persistence_points",
     "logistic_map",
     "lyapunov_approximation_for_logistic_map",
-    "merge_tree_from_time_series",
+    "merge_tree_from_time_series_dmt",
+    "merge_tree_from_time_series_higra",
     "persistence_diagram_from_time_series",
     "plot_extended_persistence_diagrams",
     "plot_merge_tree_as_dendrogram",
@@ -101,6 +103,7 @@ def white_noise(length, mean=0, std_dev=1):
 ## Lyapunov exponent estimation ##
 ##################################
 
+
 def lyapunov_approximation_for_logistic_map(r_values, x0=0.5, n_iterations=10000, skip_iterations=1000):
     """
     Approximate the largest Lyapunov exponent of the Logistic map for each r value provided.
@@ -144,6 +147,7 @@ def lyapunov_approximation_for_logistic_map(r_values, x0=0.5, n_iterations=10000
     lyapunov_exp /= n_iterations
 
     return lyapunov_exp
+
 
 #####################################################
 ## Persistent homology and merge tree computations ##
@@ -481,7 +485,41 @@ def _remove_redundant_leaves(tree, altitudes):
     return pruned_tree, pruned_tree_altitudes
 
 
-def merge_tree_from_time_series(time_series, superlevel_filtration=False):
+def _higra_merge_tree_2_dmt_merge_tree(hg_merge_tree, altitudes):
+    """
+    Helper function. Convert a Higra merge tree to a `DMT_tools` merge tree.
+    
+    Parameters
+    ----------
+    hg_merge_tree : higra.Tree
+        The tree to be converted for use by the decorated merge tree code.
+    altitudes : array
+        Heights of the nodes in the input tree.
+
+    Returns
+    -------
+    DMT_tools.MergeTree
+        A `networkx`-based version of the merge tree suitable for use in `DMT_tools` functions.
+    """
+
+    hg_vertices = hg_merge_tree.vertices()
+    hg_parents = hg_merge_tree.parents()
+    hg_edges = list(zip(hg_vertices, hg_parents))
+
+    nx_vertices = hg_vertices
+    nx_edges = hg_edges[:-1]  # omit the self-loop edge Higra uses
+    nx_heights = {v: h for v, h in zip(hg_vertices, altitudes)}
+
+    nx_merge_tree = nx.Graph()
+    nx_merge_tree.add_nodes_from(nx_vertices)
+    nx_merge_tree.add_edges_from(nx_edges)
+
+    merge_tree = MergeTree(tree=nx_merge_tree, height=nx_heights)
+
+    return merge_tree
+
+
+def merge_tree_from_time_series_higra(time_series, superlevel_filtration=False):
     """
     Given a discrete time series compute the merge tree of its piecewise linear interpolation.
 
@@ -514,9 +552,36 @@ def merge_tree_from_time_series(time_series, superlevel_filtration=False):
     return merge_tree, merge_tree_altitudes
 
 
+def merge_tree_from_time_series_dmt(time_series, superlevel_filtration=False):
+    """
+    Given a discrete time series compute the merge tree of its piecewise linear interpolation.
+
+    Parameters
+    ----------
+    time_series : array_like
+        List or numpy array of time series values.
+    superlevel_filtration : boolean, optional
+        Generate the superlevel set filtration merge tree? Default is the sublevel set filtration merge tree.
+    
+    Returns
+    -------
+    DMT_tools.MergeTree
+        A `networkx`-based version of the merge tree suitable for use in `DMT_tools` functions.
+    """
+
+    # Build a Higra-based merge tree    
+    higra_merge_tree = merge_tree_from_time_series_higra(time_series, superlevel_filtration=superlevel_filtration)
+    
+    # Convert it to the desired DMT_tools format
+    merge_tree = _higra_merge_tree_2_dmt_merge_tree(*higra_merge_tree)
+    
+    return merge_tree
+
+
 ##############
 ## Plotting ##
 ##############
+
 
 def plot_merge_tree_as_graph(tree, altitudes, with_labels=False, node_size=5):
     """
@@ -676,7 +741,6 @@ def plot_persistence_diagram(
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.show()
-
 
 
 ###########################################
