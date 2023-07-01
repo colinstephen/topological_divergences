@@ -277,24 +277,24 @@ def persistence_statistics_vector(persistence_diagram):
     return vec.GetPersStats(persistence_diagram)
 
 
-def entropy_summary_function(persistence_diagram):
-    pass
+def entropy_summary_function(persistence_diagram, resolution=100):
+    return vec.GetEntropySummary(persistence_diagram, res=resolution)
 
 
-def betti_curve_function(persistence_diagram):
-    pass
+def betti_curve_function(persistence_diagram, resolution=100):
+    return vec.GetBettiCurveFeature(persistence_diagram, res=resolution)
 
 
-def persistence_silhouette_function(persistence_diagram):
-    pass
+def persistence_silhouette_function(persistence_diagram, resolution=100, weight_factor=1):
+    return vec.GetPersSilhouetteFeature(persistence_diagram, res=resolution, w=weight_factor)
 
 
-def persistence_lifespan_curve_function(persistence_diagram):
-    pass
+def persistence_lifespan_curve_function(persistence_diagram, resolution=100):
+    return vec.GetPersLifespanFeature(persistence_diagram, res=resolution)
 
 
-def persistence_image(persistence_diagram):
-    pass
+def persistence_image(persistence_diagram, bandwidth=0.2, resolution=20):
+    return vec.GetPersImageFeature(persistence_diagram, bw=bandwidth, r=resolution)
 
 
 #################################
