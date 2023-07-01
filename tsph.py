@@ -502,13 +502,13 @@ def _higra_merge_tree_2_dmt_merge_tree(hg_merge_tree, altitudes):
         A `networkx`-based version of the merge tree suitable for use in `DMT_tools` functions.
     """
 
-    hg_vertices = hg_merge_tree.vertices()
-    hg_parents = hg_merge_tree.parents()
+    hg_vertices = list(hg_merge_tree.vertices())
+    hg_parents = list(hg_merge_tree.parents())
     hg_edges = list(zip(hg_vertices, hg_parents))
 
     nx_vertices = hg_vertices
     nx_edges = hg_edges[:-1]  # omit the self-loop edge Higra uses
-    nx_heights = {v: h for v, h in zip(hg_vertices, altitudes)}
+    nx_heights = {v: h for v, h in zip(nx_vertices, altitudes)}
 
     nx_merge_tree = nx.Graph()
     nx_merge_tree.add_nodes_from(nx_vertices)
