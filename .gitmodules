@@ -1,0 +1,3 @@
+[submodule "decorated_merge_trees"]
+	path = decorated_merge_trees
+	url = git@github.com:trneedham/Decorated-Merge-Trees.git
