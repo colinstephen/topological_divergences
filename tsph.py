@@ -11,6 +11,7 @@ from scipy.cluster import hierarchy
 __all__ = [
     "flip_super_and_sub_level_persistence_points",
     "logistic_map",
+    "lyapunov_approximation_for_logistic_map",
     "merge_tree_from_time_series",
     "persistence_diagram_from_time_series",
     "plot_extended_persistence_diagrams",
@@ -95,6 +96,54 @@ def white_noise(length, mean=0, std_dev=1):
 
     return np.random.normal(mean, std_dev, length)
 
+
+##################################
+## Lyapunov exponent estimation ##
+##################################
+
+def lyapunov_approximation_for_logistic_map(r_values, x0=0.5, n_iterations=10000, skip_iterations=1000):
+    """
+    Approximate the largest Lyapunov exponent of the Logistic map for each r value provided.
+
+    Parameters
+    ----------
+    r_values : array
+        Array of values for the control parameter `r` in the map `f(x) = r * x * (1 - x)`
+    x0 : float
+        Initial value for the trajectory
+    n_iterations : int
+        Number of iterations of the map with which to compute the approximation
+    skip_iterations : int
+        Number of initial iterations of the map to ignore before beginning `n_iterations`
+
+    Returns
+    -------
+    array
+        The approximate largest Lyapunov exponent values for each of the input `r_values`
+    """
+
+    # Ensure we can apply array-wise operations
+    r_values = np.array(r_values)
+    
+    # Initialize all trajectories with the starting value
+    x = x0 * np.ones(r_values.shape)
+
+    # Discard the transient on all trajectories
+    for _ in range(skip_iterations):
+        x = r_values * x * (1 - x)
+
+    # Then iterate n times and compute the sum for the Lyapunov exponent
+    lyapunov_exp = np.zeros(r_values.shape)
+    for _ in range(n_iterations):
+        # update all trajectories
+        x = r_values * x * (1 - x)
+        # update the exponent approximation for each trajectory
+        lyapunov_exp += np.log(abs(r_values - 2 * r_values * x))
+
+    # Average over the number of iterations to get the final Lyapunov exponent
+    lyapunov_exp /= n_iterations
+
+    return lyapunov_exp
 
 #####################################################
 ## Persistent homology and merge tree computations ##
