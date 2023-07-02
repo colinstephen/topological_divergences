@@ -422,10 +422,10 @@ def _higra_component_tree_2_merge_tree(tree, altitudes):
     """
 
     # prune then smooth the incoming component tree (NB: order of these operations matters)
-    pruned_tree, pruned_tree_altitudes = _remove_redundant_leaves(tree, altitudes)
-    smoothed_tree, smoothed_tree_altitudes = _remove_degree_two_vertices(pruned_tree, pruned_tree_altitudes)
+    tree, altitudes = _remove_redundant_leaves(tree, altitudes)
+    tree, altitudes = _remove_degree_two_vertices(tree, altitudes)
 
-    return smoothed_tree, smoothed_tree_altitudes
+    return tree, altitudes
 
 
 def _remove_degree_two_vertices(tree, altitudes):
