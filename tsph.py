@@ -469,7 +469,7 @@ def _remove_redundant_leaves(tree, altitudes):
     tuple : (higra.Tree, altitudes)
         The simplified tree and remaining altitudes
     """
-    
+
     # compute outgoing edge weights in the tree based on altitudes
     weights = altitudes - altitudes[tree.parents()]
     
@@ -519,7 +519,7 @@ def _higra_merge_tree_2_dmt_merge_tree(hg_merge_tree, altitudes):
     return merge_tree
 
 
-def merge_tree_from_time_series_higra(time_series, superlevel_filtration=False):
+def merge_tree_from_time_series_higra(time_series, superlevel_filtration=False, make_increasing=False):
     """
     Given a discrete time series compute the merge tree of its piecewise linear interpolation.
 
@@ -529,6 +529,9 @@ def merge_tree_from_time_series_higra(time_series, superlevel_filtration=False):
         List or numpy array of time series values.
     superlevel_filtration : boolean, optional
         Generate the superlevel set filtration merge tree? Default is the sublevel set filtration merge tree.
+    make_increasing : boolean, optional
+        Only applied if superlevel_filtration is True.
+        Whether to align root altitude with the sublevel filtration and make paths from leaves to root increasing.
     
     Returns
     -------
@@ -549,10 +552,16 @@ def merge_tree_from_time_series_higra(time_series, superlevel_filtration=False):
     # simplify the component tree to retain only persistence merge tree information
     merge_tree, merge_tree_altitudes = _higra_component_tree_2_merge_tree(tree, altitudes)
 
+    # make superlevel trees comparable with sublevel trees if required
+    if superlevel_filtration and make_increasing:
+        max_altitude = np.max(merge_tree_altitudes)
+        min_altitude = np.min(merge_tree_altitudes)
+        merge_tree_altitudes = -1 * merge_tree_altitudes + min_altitude + max_altitude
+
     return merge_tree, merge_tree_altitudes
 
 
-def merge_tree_from_time_series_dmt(time_series, superlevel_filtration=False):
+def merge_tree_from_time_series_dmt(time_series, superlevel_filtration=False, make_increasing=False):
     """
     Given a discrete time series compute the merge tree of its piecewise linear interpolation.
 
@@ -562,6 +571,9 @@ def merge_tree_from_time_series_dmt(time_series, superlevel_filtration=False):
         List or numpy array of time series values.
     superlevel_filtration : boolean, optional
         Generate the superlevel set filtration merge tree? Default is the sublevel set filtration merge tree.
+    make_increasing : boolean, optional
+        Only applied if superlevel_filtration is True.
+        Whether to align root altitude with the sublevel filtration and make paths from leaves to root increasing.
     
     Returns
     -------
@@ -570,8 +582,8 @@ def merge_tree_from_time_series_dmt(time_series, superlevel_filtration=False):
     """
 
     # Build a Higra-based merge tree    
-    higra_merge_tree = merge_tree_from_time_series_higra(time_series, superlevel_filtration=superlevel_filtration)
-    
+    higra_merge_tree = merge_tree_from_time_series_higra(time_series, superlevel_filtration=superlevel_filtration, make_increasing=make_increasing)
+
     # Convert it to the desired DMT_tools format
     merge_tree = _higra_merge_tree_2_dmt_merge_tree(*higra_merge_tree)
     
