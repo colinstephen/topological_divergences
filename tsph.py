@@ -3,7 +3,7 @@ import higra as hg
 import numpy as np
 import gudhi as gd
 import networkx as nx
-# import gudhi.wasserstein
+import gudhi.wasserstein
 import matplotlib.pyplot as plt
 import vectorization as vec
 from scipy.cluster import hierarchy
@@ -105,7 +105,9 @@ def white_noise(length, mean=0, std_dev=1):
 ##################################
 
 
-def lyapunov_approximation_for_logistic_map(r_values, x0=0.5, n_iterations=10000, skip_iterations=1000):
+def lyapunov_approximation_for_logistic_map(
+    r_values, x0=0.5, n_iterations=10000, skip_iterations=1000
+):
     """
     Approximate the largest Lyapunov exponent of the Logistic map for each r value provided.
 
@@ -128,7 +130,7 @@ def lyapunov_approximation_for_logistic_map(r_values, x0=0.5, n_iterations=10000
 
     # Ensure we can apply array-wise operations
     r_values = np.array(r_values)
-    
+
     # Initialize all trajectories with the starting value
     x = x0 * np.ones(r_values.shape)
 
@@ -310,6 +312,11 @@ def persistence_diagram_from_time_series(time_series, superlevel_filtration=Fals
         The discrete time series over which to compute persistent homology.
     superlevel_filtration : boolean, optional
         Is this diagram for a superlevel set filtration? Default: sublevel set filtration.
+
+    Returns
+    -------
+    array
+        List of finite (b,d) pairs in the given diagram.
     """
 
     filter_function = (
@@ -343,8 +350,12 @@ def betti_curve_function(persistence_diagram, resolution=100):
     return vec.GetBettiCurveFeature(persistence_diagram, res=resolution)
 
 
-def persistence_silhouette_function(persistence_diagram, resolution=100, weight_factor=1):
-    return vec.GetPersSilhouetteFeature(persistence_diagram, res=resolution, w=weight_factor)
+def persistence_silhouette_function(
+    persistence_diagram, resolution=100, weight_factor=1
+):
+    return vec.GetPersSilhouetteFeature(
+        persistence_diagram, res=resolution, w=weight_factor
+    )
 
 
 def persistence_lifespan_curve_function(persistence_diagram, resolution=100):
@@ -477,7 +488,7 @@ def _remove_redundant_leaves(tree, altitudes):
 
     # compute outgoing edge weights in the tree based on altitudes
     weights = altitudes - altitudes[tree.parents()]
-    
+
     # create a filter based on whether an outgoing weight is zero
     filter = np.array(weights == 0)
 
@@ -493,7 +504,7 @@ def _remove_redundant_leaves(tree, altitudes):
 def _higra_merge_tree_2_dmt_merge_tree(hg_merge_tree, altitudes):
     """
     Helper function. Convert a Higra merge tree to a `DMT_tools` merge tree.
-    
+
     Parameters
     ----------
     hg_merge_tree : higra.Tree
@@ -524,7 +535,9 @@ def _higra_merge_tree_2_dmt_merge_tree(hg_merge_tree, altitudes):
     return merge_tree
 
 
-def merge_tree_from_time_series_higra(time_series, superlevel_filtration=False, make_increasing=False):
+def merge_tree_from_time_series_higra(
+    time_series, superlevel_filtration=False, make_increasing=False
+):
     """
     Given a discrete time series compute the merge tree of its piecewise linear interpolation.
 
@@ -537,7 +550,7 @@ def merge_tree_from_time_series_higra(time_series, superlevel_filtration=False, 
     make_increasing : boolean, optional
         Only applied if superlevel_filtration is True.
         Whether to align root altitude with the sublevel filtration and make paths from leaves to root increasing.
-    
+
     Returns
     -------
     tuple : (higra.CptHierarchy, array)
@@ -555,7 +568,9 @@ def merge_tree_from_time_series_higra(time_series, superlevel_filtration=False, 
     altitudes = -1 * np.array(altitudes) if superlevel_filtration else altitudes
 
     # simplify the component tree to retain only persistence merge tree information
-    merge_tree, merge_tree_altitudes = _higra_component_tree_2_merge_tree(tree, altitudes)
+    merge_tree, merge_tree_altitudes = _higra_component_tree_2_merge_tree(
+        tree, altitudes
+    )
 
     # make superlevel trees comparable with sublevel trees if required
     if superlevel_filtration and make_increasing:
@@ -566,7 +581,9 @@ def merge_tree_from_time_series_higra(time_series, superlevel_filtration=False, 
     return merge_tree, merge_tree_altitudes
 
 
-def merge_tree_from_time_series_dmt(time_series, superlevel_filtration=False, make_increasing=False):
+def merge_tree_from_time_series_dmt(
+    time_series, superlevel_filtration=False, make_increasing=False
+):
     """
     Given a discrete time series compute the merge tree of its piecewise linear interpolation.
 
@@ -579,19 +596,23 @@ def merge_tree_from_time_series_dmt(time_series, superlevel_filtration=False, ma
     make_increasing : boolean, optional
         Only applied if superlevel_filtration is True.
         Whether to align root altitude with the sublevel filtration and make paths from leaves to root increasing.
-    
+
     Returns
     -------
     DMT_tools.MergeTree
         A `networkx`-based version of the merge tree suitable for use in `DMT_tools` functions.
     """
 
-    # Build a Higra-based merge tree    
-    higra_merge_tree = merge_tree_from_time_series_higra(time_series, superlevel_filtration=superlevel_filtration, make_increasing=make_increasing)
+    # Build a Higra-based merge tree
+    higra_merge_tree = merge_tree_from_time_series_higra(
+        time_series,
+        superlevel_filtration=superlevel_filtration,
+        make_increasing=make_increasing,
+    )
 
     # Convert it to the desired DMT_tools format
     merge_tree = _higra_merge_tree_2_dmt_merge_tree(*higra_merge_tree)
-    
+
     return merge_tree
 
 
@@ -624,7 +645,13 @@ def plot_merge_tree_as_graph(tree, altitudes, with_labels=False, node_size=5):
         nx_tree.add_edge(edge[0], edge[1])
 
     labels = {vertex: altitude for vertex, altitude in zip(tree.vertices(), altitudes)}
-    nx.draw_kamada_kawai(nx_tree, with_labels=with_labels, labels=labels, node_color='darkblue', node_size=node_size)
+    nx.draw_kamada_kawai(
+        nx_tree,
+        with_labels=with_labels,
+        labels=labels,
+        node_color="darkblue",
+        node_size=node_size,
+    )
     plt.show()
 
 
@@ -653,7 +680,9 @@ def plot_merge_tree_as_dendrogram(tree, altitudes, superlevel_filtration=False):
     hg.plot_partition_tree(hg.Tree(tree.parents()), altitudes=altitudes)
 
 
-def plot_merge_tree_as_dendrogram_scipy(tree, altitudes, superlevel_filtration=False, dendrogram_params=None):
+def plot_merge_tree_as_dendrogram_scipy(
+    tree, altitudes, superlevel_filtration=False, dendrogram_params=None
+):
     """
     Plot a dendrogram of a merge tree direcly with Scipy, bypassing Higra, to allow for custom output.
 
@@ -765,7 +794,9 @@ def plot_persistence_diagram(
 ###########################################
 
 
-def hvg_from_time_series(time_series, directed=None, weighted=None, penetrable_limit=0, bottom_hvg=False):
+def hvg_from_time_series(
+    time_series, directed=None, weighted=None, penetrable_limit=0, bottom_hvg=False
+):
     """
     Construct HVG. Passes most keyword args to the `ts2vg.HorizontalVG` constructor.
 
@@ -781,13 +812,15 @@ def hvg_from_time_series(time_series, directed=None, weighted=None, penetrable_l
         Number of intermediate bars edges can penetrate. See ts2vg docs.
     bottom_hvg : boolean
         Construct the "bottom" HVG? Defaults to `False` and builds the standard "top" HVG.
-    
+
     Returns
     -------
     ts2vg.HorizontalVG
         The "top" or "bottom" horizontal visibility graph generated by ts2vg.
     """
-    ts2vg_kwargs = dict(directed=directed, weighted=weighted, penetrable_limit=penetrable_limit)
+    ts2vg_kwargs = dict(
+        directed=directed, weighted=weighted, penetrable_limit=penetrable_limit
+    )
     time_series = -1 * np.array(time_series) if bottom_hvg else np.array(time_series)
     hvg = ts2vg.HorizontalVG(**ts2vg_kwargs)
     hvg.build(time_series)
@@ -798,7 +831,7 @@ def hvg_from_time_series(time_series, directed=None, weighted=None, penetrable_l
 ############################
 
 
-def hvg_degree_distribution(hvg : ts2vg.HorizontalVG, max_degree : int = 100):
+def hvg_degree_distribution(hvg: ts2vg.HorizontalVG, max_degree: int = 100):
     """
     Empirical degree distribution of a horizontal visibility graph.
 
@@ -818,7 +851,7 @@ def hvg_degree_distribution(hvg : ts2vg.HorizontalVG, max_degree : int = 100):
     ks, ps = hvg.degree_distribution
     probabilities = np.zeros(max_degree)
     for k, p in zip(ks, ps):
-        probabilities[k-1] = p
+        probabilities[k - 1] = p
 
     return probabilities
 
@@ -832,15 +865,107 @@ def hvg_statistics_vector(hvg):
 ###########################################################################
 
 
-def compute_extended_persistence_divergence(ordinary_pd, relative_pd):
-    ordinary_pd = [(b, d) for (_, (b, d)) in ordinary_pd]
-    relative_pd = [(d, b) for (_, (b, d)) in relative_pd]
-    ordinary_pd = np.array(ordinary_pd)
-    relative_pd = np.array(relative_pd)
-    # return gudhi.wasserstein.wasserstein_distance(ordinary_pd, relative_pd)
-    return gd.bottleneck_distance(ordinary_pd, relative_pd)
+def topological_representation_divergence(
+    time_series,
+    sublevel_rep: str = None,
+    superlevel_rep_func: str = None,
+    sublevel_rep_params: dict = None,
+    superlevel_rep_params: dict = None,
+    distance: str = None,
+    distance_params: dict = None,
+):
+    """
+    Use a distance function to compare the sublevel and superlevel set filtration representations of a time series.
+
+    Parameters
+    ----------
+    time_series : array
+        The time series to analyse
+    sublevel_rep : str
+        Name of the sublevel set topology representation of the time series.
+    superlevel_rep : str
+        Name of the superlevel set topology representation of the time series.
+    sublevel_rep_params : dict
+        Parameters for the sublevel set representation function.
+    superlevel_rep_params : dict
+        Parameters for the superlevel set representation function.
+    distance : str
+        Name of the distance function to apply between the representations.
+    distance_params : dict
+        Parameters for the distance function.
+
+    Notes
+    -----
+    1. Generally the `sublevel_rep` and `superlevel_rep` should be the same.
+    2. The distance function should be compatible with the chosen representation.
+    """
+
+    time_series = np.array(time_series)
+
+    representations = {
+        "persistence_diagram": persistence_diagram_from_time_series,
+        "merge_tree": merge_tree_from_time_series_dmt,
+        "horizontal_visibility_graph": hvg_from_time_series,
+    }
+
+    vectorisations = {
+        "none": lambda x: x,
+        "pd_statistics": persistence_statistics_vector,
+        "pd_entropy": entropy_summary_function,
+        "pd_betti": betti_curve_function,
+        "pd_silhouette": persistence_silhouette_function,
+        "pd_lifespan": persistence_lifespan_curve_function,
+        "pd_image": persistence_image,
+    }
+
+    pass
 
 
+def superlevel_vs_sublevel_persistence_divergence(
+    sublevel_pd, superlevel_pd, distance=None, wasserstein_p=1.0
+):
+    """
+    Bottleneck or Wasserstein distance between sublevel and (flipped) superlevel set persistence diagrams.
+
+    Parameters
+    ----------
+    sublevel_pd : array
+        List of (b, d) sublevel set persistence pairs.
+    superlevel_pd : array
+        List of (b, d) superlevel set persistence pairs. Note that b > d for superlevel filtrations.
+    distance : str
+        Name of distance function to apply. Can be "bottleneck" or "wasserstein".
+    wasserstein_p : float
+        Wasserstein exponent between 1.0 and np.inf. Ignored if distance is not "wasserstein".
+
+    Returns
+    -------
+    float
+        The distance between the persistence diagrams after flipping one of them over the b=d diagonal.
+    """
+
+    sublevel_pd = np.array(sublevel_pd)
+    superlevel_pd = np.array(superlevel_pd)
+    if distance is None:
+        distance = "bottleneck"
+
+    assert distance in [
+        "bottleneck",
+        "wasserstein",
+    ], "Distance function should be 'bottleneck' or 'wasserstein'."
+
+    flipped_superlevel_pd = flip_super_and_sub_level_persistence_points(superlevel_pd)
+
+    def wasserstein_distance(d1, d2):
+        # define a partial function that fixes the p-value
+        return gudhi.wasserstein.wasserstein_distance(d1, d2, order=wasserstein_p)
+
+    distance_funcs = {
+        "wasserstein": wasserstein_distance,
+        "bottleneck": gd.bottleneck_distance,
+    }
+
+    return distance_funcs[distance](sublevel_pd, flipped_superlevel_pd)
 
 
 def autocorrelation(sequence):
