@@ -114,7 +114,7 @@ tinycss2==1.2.1
 tomli==2.0.1
 tornado==6.3.2
 traitlets==5.9.0
-ts2vg==1.2.2
+ts2vg @ git+https://github.com/colinstephen/ts2vg.git@e11ba158e147b5b0f8bd4e78a77d619c38671c8d
 uri-template==1.3.0
 vectorization @ git+https://github.com/Cimagroup/vectorization-maps.git@7375cf594ad80f9d852e0ba3ef85ec68643e1124
 wcwidth==0.2.6
