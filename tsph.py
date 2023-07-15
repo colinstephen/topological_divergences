@@ -2,7 +2,7 @@ import higra as hg
 import numpy as np
 import gudhi as gd
 import networkx as nx
-import gudhi.wasserstein
+# import gudhi.wasserstein
 import matplotlib.pyplot as plt
 import vectorization as vec
 from scipy.cluster import hierarchy
@@ -156,7 +156,7 @@ def lyapunov_approximation_for_logistic_map(r_values, x0=0.5, n_iterations=10000
 
 def _sublevel_set_filtration(time_series):
     """
-    Creates the sublevel set filtration for the given time series.
+    Helper function. Creates the sublevel set filtration for the given time series.
 
     Parameters
     ----------
@@ -184,7 +184,7 @@ def _sublevel_set_filtration(time_series):
 
 def _superlevel_set_filtration(time_series):
     """
-    Creates the superlevel set filtration for the given time series.
+    Helper function. Creates the superlevel set filtration for the given time series.
 
     Parameters
     ----------
@@ -195,6 +195,10 @@ def _superlevel_set_filtration(time_series):
     -------
     list
         The filtration: a list of (simplex, value) pairs representing the superlevel set filtration.
+
+    Notes
+    -----
+    The values of the simplices are the negations of the original time series values, to ensure they are increasing over the filtration.
     """
 
     # invert the sequence (make peaks into pits and vice versa)
@@ -206,7 +210,7 @@ def _superlevel_set_filtration(time_series):
 
 def _persistent_homology_simplex_tree(filtration):
     """
-    Construct a Gudhi simplex tree representing the given filtration.
+    Helper function. Construct a Gudhi simplex tree representing the given filtration.
 
     Parameters
     ----------
@@ -233,7 +237,7 @@ def _persistence_diagram_from_simplex_tree(
     simplex_tree, dimension=0, superlevel_filtration=False
 ):
     """
-    Construct the persistent homology diagram induced by the given simplex tree.
+    Helper function. Construct the persistent homology diagram induced by the given simplex tree.
 
     Parameters
     ----------
