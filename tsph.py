@@ -39,7 +39,6 @@ __all__ = [
     "plot_merge_tree_as_graph",
     "plot_persistence_diagram",
     "plot_time_series",
-    "superlevel_vs_sublevel_persistence_divergence",
     "wasserstein_divergence",
     "white_noise",
 ]
