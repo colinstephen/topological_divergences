@@ -3,26 +3,44 @@ import higra as hg
 import numpy as np
 import gudhi as gd
 import networkx as nx
-import gudhi.wasserstein
 import matplotlib.pyplot as plt
 import vectorization as vec
 from scipy.cluster import hierarchy
+from scipy.spatial.distance import cosine as cosine_distance
+from scipy.spatial.distance import euclidean as euclidean_distance
+from dtaidistance import dtw as dtw_distance
+from gudhi import bottleneck_distance
+from gudhi.wasserstein import wasserstein_distance
 from decorated_merge_trees.DMT_tools import MergeTree
+
 
 # Avoid namespace issues in Jupyter notebooks when using `from tsph import *`
 __all__ = [
+    "autocorrelation",
+    "bottleneck_divergence",
     "flip_super_and_sub_level_persistence_points",
+    "hvg_degree_distribution",
+    "hvg_from_time_series",
+    "hvg_statistics_vector",
     "logistic_map",
     "lyapunov_approximation_for_logistic_map",
     "merge_tree_from_time_series_dmt",
     "merge_tree_from_time_series_higra",
     "persistence_diagram_from_time_series",
+    "persistence_statistics_vector",
+    "entropy_summary_function",
+    "betti_curve_function",
+    "persistence_silhouette_function",
+    "persistence_lifespan_curve_function",
+    "persistence_image",
     "plot_extended_persistence_diagrams",
     "plot_merge_tree_as_dendrogram",
     "plot_merge_tree_as_dendrogram_scipy",
     "plot_merge_tree_as_graph",
     "plot_persistence_diagram",
     "plot_time_series",
+    "superlevel_vs_sublevel_persistence_divergence",
+    "wasserstein_divergence",
     "white_noise",
 ]
 
@@ -277,6 +295,9 @@ def _persistence_diagram_from_simplex_tree(
     if superlevel_filtration:
         persistence_diagram = [(-b, -d) for (b, d) in persistence_diagram]
 
+    # finally create a 2-d numpy array for downstream processing
+    persistence_diagram = np.array(persistence_diagram)
+
     return persistence_diagram
 
 
@@ -299,7 +320,7 @@ def flip_super_and_sub_level_persistence_points(persistence_diagram):
     Use this function to make superlevel and sublevel set persistence diagrams comparable using standard persistence diagram metrics.
     """
 
-    return [(d, b) for (b, d) in persistence_diagram]
+    return np.array([(d, b) for (b, d) in persistence_diagram])
 
 
 def persistence_diagram_from_time_series(time_series, superlevel_filtration=False):
@@ -865,17 +886,23 @@ def hvg_statistics_vector(hvg):
 ###########################################################################
 
 
-def topological_representation_divergence(
+def _topological_representation_divergence(
     time_series,
-    sublevel_rep: str = None,
-    superlevel_rep_func: str = None,
+    sublevel_rep_func: str = None,
     sublevel_rep_params: dict = None,
+    sublevel_rep_postprocess: list = None,
+    sublevel_rep_vectorisation: str = None,
+    sublevel_rep_vectorisation_params: dict = None,
+    superlevel_rep_func: str = None,
     superlevel_rep_params: dict = None,
-    distance: str = None,
+    superlevel_rep_postprocess: list = None,
+    superlevel_rep_vectorisation: str = None,
+    superlevel_rep_vectorisation_params: dict = None,
+    distance_func: str = None,
     distance_params: dict = None,
 ):
     """
-    Use a distance function to compare the sublevel and superlevel set filtration representations of a time series.
+    Helper function. Use distance func to compare sub vs super levelset filtrations of a time series.
 
     Parameters
     ----------
@@ -883,30 +910,81 @@ def topological_representation_divergence(
         The time series to analyse
     sublevel_rep : str
         Name of the sublevel set topology representation of the time series.
-    superlevel_rep : str
-        Name of the superlevel set topology representation of the time series.
     sublevel_rep_params : dict
         Parameters for the sublevel set representation function.
+    sublevel_rep_postprocess : list
+        List of post-processing steps to apply to sublevel set representation before vectorisation.
+    sublevel_rep_vectorisation : str
+        Name of the vectorisation to apply to the representation.
+    sublevel_rep_vectorisation_params : dict
+        Parameters for the sublevel representation vectorisation.
+    superlevel_rep : str
+        Name of the superlevel set topology representation of the time series.
     superlevel_rep_params : dict
         Parameters for the superlevel set representation function.
-    distance : str
+    superlevel_rep_postprocess : list
+        List of post-processing steps to apply to superlevel set representation before vectorisation.
+    superlevel_rep_vectorisation : str
+        Name of the vectorisation to apply to the representation.
+    superlevel_rep_vectorisation_params : dict
+        Parameters for the superlevel representation vectorisation.
+    distance_func : str
         Name of the distance function to apply between the representations.
     distance_params : dict
         Parameters for the distance function.
 
     Notes
     -----
-    1. Generally the `sublevel_rep` and `superlevel_rep` should be the same.
-    2. The distance function should be compatible with the chosen representation.
+    1. Generally the sublevel and superlevel representations should be the same.
+    2. Generally the sublevel and superlevel vectorisations should be the same.
+    3. The distance function should be compatible with the chosen vectorisation.
     """
 
     time_series = np.array(time_series)
 
     representations = {
+        "none": lambda x: x,
         "persistence_diagram": persistence_diagram_from_time_series,
         "merge_tree": merge_tree_from_time_series_dmt,
         "horizontal_visibility_graph": hvg_from_time_series,
     }
+
+    if sublevel_rep_func is None:
+        sublevel_rep_func = "none"
+
+    if superlevel_rep_func is None:
+        superlevel_rep_func = "none"
+
+    assert (
+        sublevel_rep_func in representations.keys()
+    ), "Invalid time series sublevel representation."
+    assert (
+        superlevel_rep_func in representations.keys()
+    ), "Invalid time series superlevel representation."
+
+    if sublevel_rep_params is None:
+        sublevel_rep_params = dict()
+
+    if superlevel_rep_params is None:
+        superlevel_rep_params = dict()
+
+    postprocessing_chain = {
+        "none": [],
+        "flip_persistence": [flip_super_and_sub_level_persistence_points],
+    }
+
+    if sublevel_rep_postprocess is None:
+        sublevel_rep_postprocess = "none"
+
+    if superlevel_rep_postprocess is None:
+        superlevel_rep_postprocess = "none"
+
+    assert (
+        sublevel_rep_postprocess in postprocessing_chain.keys()
+    ), "Invalid sublevel postprocessing chain"
+    assert (
+        superlevel_rep_postprocess in postprocessing_chain.keys()
+    ), "Invalid superlevel postprocessing chain"
 
     vectorisations = {
         "none": lambda x: x,
@@ -918,8 +996,81 @@ def topological_representation_divergence(
         "pd_image": persistence_image,
     }
 
-    pass
+    if sublevel_rep_vectorisation is None:
+        sublevel_rep_vectorisation = "none"
 
+    if superlevel_rep_vectorisation is None:
+        superlevel_rep_vectorisation = "none"
+
+    assert (
+        sublevel_rep_vectorisation in vectorisations.keys()
+    ), "Invalid sublevel vectorisation"
+    assert (
+        superlevel_rep_vectorisation in vectorisations.keys()
+    ), "Invalid superlevel vectorisation"
+
+    if sublevel_rep_vectorisation_params is None:
+        sublevel_rep_vectorisation_params = dict()
+
+    if superlevel_rep_vectorisation_params is None:
+        superlevel_rep_vectorisation_params = dict()
+
+    distances = {
+        "l2_dist": euclidean_distance,
+        "dtw_dist": dtw_distance,
+        "cosine_dist": cosine_distance,
+        "bottleneck_dist": bottleneck_distance,
+        "wasserstein_dist": wasserstein_distance,
+    }
+
+    assert distance_func in distances.keys(), "Invalid distance function"
+
+    if distance_params is None:
+        distance_params = dict()
+
+    sub_rep = representations[sublevel_rep_func](time_series, **sublevel_rep_params)
+    super_rep = representations[superlevel_rep_func](
+        time_series, **superlevel_rep_params
+    )
+
+    for sublevel_postprocess_func in postprocessing_chain[sublevel_rep_postprocess]:
+        sub_rep = sublevel_postprocess_func(sub_rep)
+
+    for superlevel_postprocess_func in postprocessing_chain[superlevel_rep_postprocess]:
+        super_rep = superlevel_postprocess_func(super_rep)
+
+    sub_vec = vectorisations[sublevel_rep_vectorisation](
+        sub_rep, **sublevel_rep_vectorisation_params
+    )
+    super_vec = vectorisations[superlevel_rep_vectorisation](
+        super_rep, **superlevel_rep_vectorisation_params
+    )
+
+    dist = distances[distance_func](sub_vec, super_vec, **distance_params)
+
+    return dist
+
+
+def bottleneck_divergence(time_series):
+    return _topological_representation_divergence(
+        time_series,
+        sublevel_rep_func="persistence_diagram",
+        superlevel_rep_func="persistence_diagram",
+        superlevel_rep_params=dict(superlevel_filtration=True),
+        superlevel_rep_postprocess="flip_persistence",
+        distance_func="bottleneck_dist",
+    )
+
+def wasserstein_divergence(time_series):
+    return _topological_representation_divergence(
+        time_series,
+        sublevel_rep_func="persistence_diagram",
+        superlevel_rep_func="persistence_diagram",
+        superlevel_rep_params=dict(superlevel_filtration=True),
+        superlevel_rep_postprocess="flip_persistence",
+        distance_func="wasserstein_dist",
+        distance_params=dict(order=1.0)
+    )
 
 def superlevel_vs_sublevel_persistence_divergence(
     sublevel_pd, superlevel_pd, distance=None, wasserstein_p=1.0
@@ -956,13 +1107,13 @@ def superlevel_vs_sublevel_persistence_divergence(
 
     flipped_superlevel_pd = flip_super_and_sub_level_persistence_points(superlevel_pd)
 
-    def wasserstein_distance(d1, d2):
+    def p_wasserstein_distance(d1, d2):
         # define a partial function that fixes the p-value
-        return gudhi.wasserstein.wasserstein_distance(d1, d2, order=wasserstein_p)
+        return wasserstein_distance(d1, d2, order=wasserstein_p)
 
     distance_funcs = {
-        "wasserstein": wasserstein_distance,
-        "bottleneck": gd.bottleneck_distance,
+        "wasserstein": p_wasserstein_distance,
+        "bottleneck": bottleneck_distance,
     }
 
     return distance_funcs[distance](sublevel_pd, flipped_superlevel_pd)
