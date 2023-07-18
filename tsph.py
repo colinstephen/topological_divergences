@@ -1052,6 +1052,9 @@ def _topological_representation_divergence(
 
 
 def bottleneck_divergence(time_series):
+    """
+    Bottleneck distance between sublevel and superlevel persistence diagrams. 
+    """
     return _topological_representation_divergence(
         time_series,
         sublevel_rep_func="persistence_diagram",
@@ -1061,7 +1064,10 @@ def bottleneck_divergence(time_series):
         distance_func="bottleneck_dist",
     )
 
-def wasserstein_divergence(time_series):
+def wasserstein_divergence(time_series, p=1.0):
+    """
+    p-Wasserstein distance between sublevel and superlevel persistence diagrams.
+    """
     return _topological_representation_divergence(
         time_series,
         sublevel_rep_func="persistence_diagram",
@@ -1069,55 +1075,8 @@ def wasserstein_divergence(time_series):
         superlevel_rep_params=dict(superlevel_filtration=True),
         superlevel_rep_postprocess="flip_persistence",
         distance_func="wasserstein_dist",
-        distance_params=dict(order=1.0)
+        distance_params=dict(order=p)
     )
-
-def superlevel_vs_sublevel_persistence_divergence(
-    sublevel_pd, superlevel_pd, distance=None, wasserstein_p=1.0
-):
-    """
-    Bottleneck or Wasserstein distance between sublevel and (flipped) superlevel set persistence diagrams.
-
-    Parameters
-    ----------
-    sublevel_pd : array
-        List of (b, d) sublevel set persistence pairs.
-    superlevel_pd : array
-        List of (b, d) superlevel set persistence pairs. Note that b > d for superlevel filtrations.
-    distance : str
-        Name of distance function to apply. Can be "bottleneck" or "wasserstein".
-    wasserstein_p : float
-        Wasserstein exponent between 1.0 and np.inf. Ignored if distance is not "wasserstein".
-
-    Returns
-    -------
-    float
-        The distance between the persistence diagrams after flipping one of them over the b=d diagonal.
-    """
-
-    sublevel_pd = np.array(sublevel_pd)
-    superlevel_pd = np.array(superlevel_pd)
-    if distance is None:
-        distance = "bottleneck"
-
-    assert distance in [
-        "bottleneck",
-        "wasserstein",
-    ], "Distance function should be 'bottleneck' or 'wasserstein'."
-
-    flipped_superlevel_pd = flip_super_and_sub_level_persistence_points(superlevel_pd)
-
-    def p_wasserstein_distance(d1, d2):
-        # define a partial function that fixes the p-value
-        return wasserstein_distance(d1, d2, order=wasserstein_p)
-
-    distance_funcs = {
-        "wasserstein": p_wasserstein_distance,
-        "bottleneck": bottleneck_distance,
-    }
-
-    return distance_funcs[distance](sublevel_pd, flipped_superlevel_pd)
-
 
 def autocorrelation(sequence):
     if isinstance(sequence, list):
