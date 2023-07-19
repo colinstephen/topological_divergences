@@ -5,9 +5,13 @@ import gudhi as gd
 import networkx as nx
 import matplotlib.pyplot as plt
 import vectorization as vec
+from numpy.linalg import norm
 from scipy.cluster import hierarchy
 from scipy.spatial.distance import cosine as cosine_distance
 from scipy.spatial.distance import euclidean as euclidean_distance
+from scipy.stats import (
+    wasserstein_distance as wasserstein_distance_for_1d_distributions,
+)
 from dtaidistance import dtw as dtw_distance
 from gudhi import bottleneck_distance
 from gudhi.wasserstein import wasserstein_distance
@@ -21,6 +25,7 @@ __all__ = [
     "flip_super_and_sub_level_persistence_points",
     "hvg_degree_distribution",
     "hvg_from_time_series",
+    "hvg_peak_pit_divergence",
     "hvg_statistics_vector",
     "logistic_map",
     "lyapunov_approximation_for_logistic_map",
@@ -845,6 +850,8 @@ def hvg_from_time_series(
     hvg = ts2vg.HorizontalVG(**ts2vg_kwargs)
     hvg.build(time_series)
 
+    return hvg
+
 
 ############################
 ## Vectorisations of HVGs ##
@@ -883,6 +890,12 @@ def hvg_statistics_vector(hvg):
 ###########################################################################
 ## Divergences of superlevel and sublevel set filtration representations ##
 ###########################################################################
+
+
+def lp_distance(a, b, p=2):
+    a = np.array(a)
+    b = np.array(b)
+    return norm(a - b, ord=p)
 
 
 def _topological_representation_divergence(
@@ -993,6 +1006,7 @@ def _topological_representation_divergence(
         "pd_silhouette": persistence_silhouette_function,
         "pd_lifespan": persistence_lifespan_curve_function,
         "pd_image": persistence_image,
+        "hvg_degree_distribution": hvg_degree_distribution,
     }
 
     if sublevel_rep_vectorisation is None:
@@ -1016,10 +1030,12 @@ def _topological_representation_divergence(
 
     distances = {
         "l2_dist": euclidean_distance,
+        "lp_dist": lp_distance,
         "dtw_dist": dtw_distance,
         "cosine_dist": cosine_distance,
         "bottleneck_dist": bottleneck_distance,
         "wasserstein_dist": wasserstein_distance,
+        "wasserstein_distance_for_1d_distributions": wasserstein_distance_for_1d_distributions,
     }
 
     assert distance_func in distances.keys(), "Invalid distance function"
@@ -1052,7 +1068,7 @@ def _topological_representation_divergence(
 
 def bottleneck_divergence(time_series):
     """
-    Bottleneck distance between sublevel and superlevel persistence diagrams. 
+    Bottleneck distance between sublevel and superlevel persistence diagrams.
     """
     return _topological_representation_divergence(
         time_series,
@@ -1062,6 +1078,7 @@ def bottleneck_divergence(time_series):
         superlevel_rep_postprocess="flip_persistence",
         distance_func="bottleneck_dist",
     )
+
 
 def wasserstein_divergence(time_series, p=1.0):
     """
@@ -1074,8 +1091,29 @@ def wasserstein_divergence(time_series, p=1.0):
         superlevel_rep_params=dict(superlevel_filtration=True),
         superlevel_rep_postprocess="flip_persistence",
         distance_func="wasserstein_dist",
-        distance_params=dict(order=p)
+        distance_params=dict(order=p),
     )
+
+
+def hvg_peak_pit_divergence(
+    time_series,
+    distance_func="wasserstein_distance_for_1d_distributions",
+    distance_params=None,
+):
+    """
+    Distance between HVG peak and pit degree distributions.
+    """
+    return _topological_representation_divergence(
+        time_series,
+        sublevel_rep_func="horizontal_visibility_graph",
+        superlevel_rep_func="horizontal_visibility_graph",
+        superlevel_rep_params=dict(bottom_hvg=True),
+        sublevel_rep_vectorisation="hvg_degree_distribution",
+        superlevel_rep_vectorisation="hvg_degree_distribution",
+        distance_func=distance_func,
+        distance_params=distance_params,
+    )
+
 
 def autocorrelation(sequence):
     if isinstance(sequence, list):
