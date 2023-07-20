@@ -35,6 +35,8 @@ __all__ = [
     "persistence_statistics_vector",
     "entropy_summary_function",
     "betti_curve_function",
+    "pd_stats_divergence",
+    "pd_entropy_summary_divergence",
     "persistence_silhouette_function",
     "persistence_lifespan_curve_function",
     "persistence_image",
@@ -1065,6 +1067,42 @@ def _topological_representation_divergence(
 
     return dist
 
+
+def pd_entropy_summary_divergence(time_series, resolution=100):
+    """
+    Curve distance between persistence entropy summaries.
+    """
+    return _topological_representation_divergence(
+        time_series,
+        sublevel_rep_func="persistence_diagram",
+        sublevel_rep_vectorisation="pd_entropy",
+        sublevel_rep_vectorisation_params=dict(resolution=resolution),
+        superlevel_rep_func="persistence_diagram",
+        superlevel_rep_params=dict(superlevel_filtration=True),
+        superlevel_rep_postprocess="flip_persistence",
+        superlevel_rep_vectorisation="pd_entropy",
+        superlevel_rep_vectorisation_params=dict(resolution=resolution),
+        distance_func="lp_dist",
+        distance_params=dict(p=2.0)
+    )
+
+
+
+def pd_stats_divergence(time_series):
+    """
+    Vector-based distance between persistence statistics vector summaries. 
+    """
+    return _topological_representation_divergence(
+        time_series,
+        sublevel_rep_func="persistence_diagram",
+        sublevel_rep_vectorisation="pd_statistics",
+        superlevel_rep_func="persistence_diagram",
+        superlevel_rep_params=dict(superlevel_filtration=True),
+        superlevel_rep_postprocess="flip_persistence",
+        superlevel_rep_vectorisation="pd_statistics",
+        distance_func="lp_dist",
+        distance_params=dict(p=2.0)
+    )
 
 def bottleneck_divergence(time_series):
     """
