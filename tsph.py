@@ -27,8 +27,7 @@ __all__ = [
     "hvg_from_time_series",
     "hvg_peak_pit_divergence",
     "hvg_statistics_vector",
-    "logistic_map",
-    "lyapunov_approximation_for_logistic_map",
+    "LogisticMapDataset",
     "merge_tree_from_time_series_dmt",
     "merge_tree_from_time_series_higra",
     "persistence_diagram_from_time_series",
@@ -55,53 +54,6 @@ __all__ = [
 ############################
 
 
-def logistic_map(r, x0, n_iterations, skip_iterations=10000):
-    """
-    Generates a logistic map time series.
-
-    Parameters
-    ----------
-    r : float
-        Parameter r representing the growth rate where 0.0 < r <= 4.0
-    x0 : float
-        Initial value where 0 < x0 < 1
-    n_iterations : int
-        Number of iterations in the returned sequence.
-    skip_iterations : int, optional, default=10000
-        Number of iterations to ignore for burn in.
-
-    Returns
-    -------
-    np.array
-        A NumPy array containing the generated time series.
-    """
-    if not (0 < r <= 4.0):
-        raise ValueError("Parameter r out of range")
-
-    if not (0 < x0 < 1):
-        raise ValueError("Initial value x0 out of range")
-
-    # initialise value of map
-    x = x0
-
-    def apply_map(x):
-        return r * x * (1 - x)
-
-    # ignore burn in iterations
-    for i in range(skip_iterations):
-        x = apply_map(x)
-
-    # initialise an array to return
-    time_series = np.zeros(n_iterations)
-
-    # generate the values of the map
-    time_series[0] = x
-    for i in range(1, n_iterations):
-        time_series[i] = apply_map(time_series[i - 1])
-
-    return time_series
-
-
 def white_noise(length, mean=0, std_dev=1):
     """
     Generates a sequence of white noise samples of specified length.
@@ -124,56 +76,163 @@ def white_noise(length, mean=0, std_dev=1):
     return np.random.normal(mean, std_dev, length)
 
 
-##################################
-## Lyapunov exponent estimation ##
-##################################
+class LogisticMapDataset:
+    def __init__(
+        self,
+        MIN_R=3.3,
+        MAX_R=4.0,
+        NUM_R=1000,
+        RANDOM_R=True,
+        X0=0.2,
+        TIME_SERIES_LENGTH=500,
+    ):
+        self.MIN_R = MIN_R
+        self.MAX_R = MAX_R
+        self.NUM_R = NUM_R
+        self.RANDOM_R = RANDOM_R
+        self.X0 = X0
+        self.TIME_SERIES_LENGTH = TIME_SERIES_LENGTH
+        self._generate_r_values()
+        self._generate_trajectories()
+        self._generate_lyapunov_exponents()
 
+    def _generate_r_values(self):
+        if self.RANDOM_R:
+            # uniformly sample r values
+            self._r_values = np.random.uniform(
+                self.MIN_R, self.MAX_R, self.NUM_R
+            )  # excludes MAX_R
+            self._r_values = np.sort(self._r_values)
+        else:
+            # evenly spaced r values
+            self._r_values = np.linspace(
+                self.MIN_R, self.MAX_R, self.NUM_R
+            )  # includes MAX_R
 
-def lyapunov_approximation_for_logistic_map(
-    r_values, x0=0.5, n_iterations=10000, skip_iterations=1000
-):
-    """
-    Approximate the largest Lyapunov exponent of the Logistic map for each r value provided.
+    def _generate_trajectories(self):
+        self._trajectories = [
+            LogisticMapDataset.logistic_map(r, self.X0, self.TIME_SERIES_LENGTH)
+            for r in self.r_values
+        ]
 
-    Parameters
-    ----------
-    r_values : array
-        Array of values for the control parameter `r` in the map `f(x) = r * x * (1 - x)`
-    x0 : float
-        Initial value for the trajectory
-    n_iterations : int
-        Number of iterations of the map with which to compute the approximation
-    skip_iterations : int
-        Number of initial iterations of the map to ignore before beginning `n_iterations`
+    def _generate_lyapunov_exponents(self):
+        self._lyapunov_exponents = (
+            LogisticMapDataset.lyapunov_approximation_for_logistic_map(
+                self.r_values, self.X0
+            )
+        )
 
-    Returns
-    -------
-    array
-        The approximate largest Lyapunov exponent values for each of the input `r_values`
-    """
+    @property
+    def r_values(self):
+        if not len(self._r_values):
+            self._generate_r_values()
+        return self._r_values
 
-    # Ensure we can apply array-wise operations
-    r_values = np.array(r_values)
+    @property
+    def trajectories(self):
+        if not len(self._trajectories):
+            self._generate_trajectories()
+        return self._trajectories
 
-    # Initialize all trajectories with the starting value
-    x = x0 * np.ones(r_values.shape)
+    @property
+    def lyapunov_exponents(self):
+        if not len(self._lyapunov_exponents):
+            self._generate_lyapunov_exponents()
+        return self._lyapunov_exponents
 
-    # Discard the transient on all trajectories
-    for _ in range(skip_iterations):
-        x = r_values * x * (1 - x)
+    @staticmethod
+    def logistic_map(r, x0, n_iterations, skip_iterations=10000):
+        """
+        Generates a logistic map time series.
 
-    # Then iterate n times and compute the sum for the Lyapunov exponent
-    lyapunov_exp = np.zeros(r_values.shape)
-    for _ in range(n_iterations):
-        # update all trajectories
-        x = r_values * x * (1 - x)
-        # update the exponent approximation for each trajectory
-        lyapunov_exp += np.log(abs(r_values - 2 * r_values * x))
+        Parameters
+        ----------
+        r : float
+            Parameter r representing the growth rate where 0.0 < r <= 4.0
+        x0 : float
+            Initial value where 0 < x0 < 1
+        n_iterations : int
+            Number of iterations in the returned sequence.
+        skip_iterations : int, optional, default=10000
+            Number of iterations to ignore for burn in.
 
-    # Average over the number of iterations to get the final Lyapunov exponent
-    lyapunov_exp /= n_iterations
+        Returns
+        -------
+        np.array
+            A NumPy array containing the generated time series.
+        """
+        if not (0 < r <= 4.0):
+            raise ValueError("Parameter r out of range")
 
-    return lyapunov_exp
+        if not (0 < x0 < 1):
+            raise ValueError("Initial value x0 out of range")
+
+        # initialise value of map
+        x = x0
+
+        def apply_map(x):
+            return r * x * (1 - x)
+
+        # ignore burn in iterations
+        for i in range(skip_iterations):
+            x = apply_map(x)
+
+        # initialise an array to return
+        time_series = np.zeros(n_iterations)
+
+        # generate the values of the map
+        time_series[0] = x
+        for i in range(1, n_iterations):
+            time_series[i] = apply_map(time_series[i - 1])
+
+        return time_series
+
+    @staticmethod
+    def lyapunov_approximation_for_logistic_map(
+        r_values, x0=0.2, n_iterations=10000, skip_iterations=1000
+    ):
+        """
+        Approximate the largest Lyapunov exponent of the Logistic map for each r value provided.
+
+        Parameters
+        ----------
+        r_values : array
+            Array of values for the control parameter `r` in the map `f(x) = r * x * (1 - x)`
+        x0 : float
+            Initial value for the trajectory
+        n_iterations : int
+            Number of iterations of the map with which to compute the approximation
+        skip_iterations : int
+            Number of initial iterations of the map to ignore before beginning `n_iterations`
+
+        Returns
+        -------
+        array
+            The approximate largest Lyapunov exponent values for each of the input `r_values`
+        """
+
+        # Ensure we can apply array-wise operations
+        r_values = np.array(r_values)
+
+        # Initialize all trajectories with the starting value
+        x = x0 * np.ones(r_values.shape)
+
+        # Discard the transient on all trajectories
+        for _ in range(skip_iterations):
+            x = r_values * x * (1 - x)
+
+        # Then iterate n times and compute the sum for the Lyapunov exponent
+        lyapunov_exp = np.zeros(r_values.shape)
+        for _ in range(n_iterations):
+            # update all trajectories
+            x = r_values * x * (1 - x)
+            # update the exponent approximation for each trajectory
+            lyapunov_exp += np.log(abs(r_values - 2 * r_values * x))
+
+        # Average over the number of iterations to get the final Lyapunov exponent
+        lyapunov_exp /= n_iterations
+
+        return lyapunov_exp
 
 
 #####################################################
@@ -1083,14 +1142,13 @@ def pd_entropy_summary_divergence(time_series, resolution=100):
         superlevel_rep_vectorisation="pd_entropy",
         superlevel_rep_vectorisation_params=dict(resolution=resolution),
         distance_func="lp_dist",
-        distance_params=dict(p=2.0)
+        distance_params=dict(p=2.0),
     )
-
 
 
 def pd_stats_divergence(time_series):
     """
-    Vector-based distance between persistence statistics vector summaries. 
+    Vector-based distance between persistence statistics vector summaries.
     """
     return _topological_representation_divergence(
         time_series,
@@ -1101,8 +1159,9 @@ def pd_stats_divergence(time_series):
         superlevel_rep_postprocess="flip_persistence",
         superlevel_rep_vectorisation="pd_statistics",
         distance_func="lp_dist",
-        distance_params=dict(p=2.0)
+        distance_params=dict(p=2.0),
     )
+
 
 def bottleneck_divergence(time_series):
     """
