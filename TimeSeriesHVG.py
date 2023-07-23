@@ -9,7 +9,7 @@ class TimeSeriesHVG:
     """
     Generate and manage horizontal visibility representations of time series.
 
-    Properties include vector representations and divergences of them them.
+    Properties include vector representations and divergences of them.
     """
 
     def __init__(

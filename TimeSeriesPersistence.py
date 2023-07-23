@@ -90,7 +90,7 @@ class TimeSeriesPersistence:
 
     @property
     def superlevel_diagram_flipped(self):
-        return np.array([(d, b) for (b, d) in self.superlevel_diagram])
+        return np.array([[d, b] for b, d in self.superlevel_diagram])
 
     @staticmethod
     def _sublevel_set_filtration(time_series):
@@ -253,7 +253,6 @@ class TimeSeriesPersistence:
                 simplex_tree, superlevel_filtration=superlevel_filtration
             )
         )
-
         return persistence_diagram
 
     ############################################
