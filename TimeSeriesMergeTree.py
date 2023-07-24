@@ -1,6 +1,9 @@
 import higra as hg
 import networkx as nx
 import numpy as np
+from functools import lru_cache
+from collections import Counter
+from scipy.stats import wasserstein_distance
 from decorated_merge_trees.DMT_tools import MergeTree
 from decorated_merge_trees.DMT_tools import decorate_merge_tree_networks
 from decorated_merge_trees.DMT_tools import merge_tree_interleaving_distance
@@ -14,17 +17,21 @@ class TimeSeriesMergeTree:
         time_series: np.array,
         INTERLEAVING_DIVERGENCE_MESH=0.5,
         DMT_ALPHA=0.5,
+        DISTRIBUTION_VECTOR_LENGTH=100,
     ) -> None:
         self._time_series = time_series
         self._sublevel_tree_higra = None
         self._superlevel_tree_higra = None
         self._sublevel_tree_dmt = None
         self._superlevel_tree_dmt = None
+        self._sublevel_tree_nx = None
+        self._superlevel_tree_nx = None
         self._persistence = None
         self._interleaving_divergence = None
         self._dmt_interleaving_divergence = None
         self.INTERLEAVING_DIVERGENCE_MESH = INTERLEAVING_DIVERGENCE_MESH
         self.DMT_ALPHA = DMT_ALPHA
+        self.DISTRIBUTION_VECTOR_LENGTH = DISTRIBUTION_VECTOR_LENGTH
 
     @property
     def persistence(self):
@@ -77,6 +84,68 @@ class TimeSeriesMergeTree:
                 )
             )
         return self._superlevel_tree_dmt
+    
+    @property
+    def sublevel_tree_nx(self) -> nx.Graph:
+        if self._sublevel_tree_nx is None:
+            nx_tree = self.sublevel_tree_dmt.tree.copy()
+            heights = self.sublevel_tree_dmt.height
+            for node in nx_tree.nodes:
+                nx_tree.nodes[node]["height"] = heights[node]
+            for edge in nx_tree.edges:
+                node1, node2 = edge
+                height1 = nx_tree.nodes[node1]["height"]
+                height2 = nx_tree.nodes[node2]["height"]
+                nx_tree.edges[edge]["weight"] = abs(height1 - height2)
+            self._sublevel_tree_nx = nx_tree
+        return self._sublevel_tree_nx
+
+    @property
+    def superlevel_tree_nx(self) -> nx.Graph:
+        if self._superlevel_tree_nx is None:
+            nx_tree = self.superlevel_tree_dmt.tree.copy()
+            heights = self.superlevel_tree_dmt.height
+            for node in nx_tree.nodes:
+                nx_tree.nodes[node]["height"] = heights[node]
+            for edge in nx_tree.edges:
+                node1, node2 = edge
+                height1 = nx_tree.nodes[node1]["height"]
+                height2 = nx_tree.nodes[node2]["height"]
+                nx_tree.edges[edge]["weight"] = abs(height1 - height2)
+            self._superlevel_tree_nx = nx_tree
+        return self._superlevel_tree_nx
+    
+    @lru_cache
+    def leaf_path_distances(self, superlevel=False, weighted=False, order=1) -> np.array:
+
+        if superlevel:
+            tree = self.superlevel_tree_nx
+        else:
+            tree = self.sublevel_tree_nx
+
+        if weighted:
+            weight = "weight"
+        else:
+            weight = None
+
+        leaves = [node for node, degree in tree.degree() if degree == 1]
+        n = len(leaves)
+        distances = np.zeros((n,n))
+
+        for i in range(n-order):
+            distances[i, i + order] = nx.shortest_path_length(tree, source=leaves[i], target=leaves[i+order], weight=weight)
+        return distances.diagonal(offset=order)
+    
+    @lru_cache
+    def leaf_path_length_distribution(self, order=1, superlevel=False) -> np.array:
+        distances = self.leaf_path_distances(superlevel=superlevel, weighted=False, order=order)
+        counts = Counter(distances)
+        total_count = len(distances)
+        empirical_distribution = {int(k): v / total_count for k, v in counts.items()}
+        distribution = np.zeros(self.DISTRIBUTION_VECTOR_LENGTH)
+        for k in empirical_distribution.keys():
+            distribution[k] = empirical_distribution[k]
+        return distribution
 
     @staticmethod
     def _chain_graph(number_of_vertices):
@@ -337,7 +406,8 @@ class TimeSeriesMergeTree:
     def divergences(self):
         return dict(
             interleaving=self.interleaving_divergence,
-            dmt_interleaving=self.dmt_interleaving_divergence
+            dmt_interleaving=self.dmt_interleaving_divergence,
+            leaf_to_leaf_path_length=self.path_length_divergence,
         )
 
     @property
@@ -373,3 +443,8 @@ class TimeSeriesMergeTree:
             )
 
         return self._dmt_interleaving_divergence
+
+    def path_length_divergence(self, order=1):
+        dist1 = self.leaf_path_length_distribution(order=order, superlevel=False)
+        dist2 = self.leaf_path_length_distribution(order=order, superlevel=True)
+        return wasserstein_distance(dist1, dist2)
