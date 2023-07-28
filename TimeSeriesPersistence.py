@@ -5,6 +5,7 @@ import vectorization as vec
 from numpy.linalg import norm
 from gudhi import bottleneck_distance
 from gudhi.wasserstein import wasserstein_distance
+from scipy.stats import wasserstein_distance as earth_movers_distance
 
 
 class EmptyDiagramException(Exception):
@@ -400,6 +401,11 @@ class TimeSeriesPersistence:
             silhouette=self.persistence_silhouette_divergence,
             lifespan=self.persistence_lifespan_curve_divergence,
             stats=self.persistence_statistics_divergence,
+            entropy_EMD=self.entropy_summary_divergence_emd,
+            betti_EMD=self.betti_curve_divergence_emd,
+            silhouette_EMD=self.persistence_silhouette_divergence_emd,
+            lifespan_EMD=self.persistence_lifespan_curve_divergence_emd,
+            stats_EMD=self.persistence_statistics_divergence_emd,
             bottleneck=self.bottleneck_divergence,
             wasserstein=self.wasserstein_divergence,
         )
@@ -411,12 +417,24 @@ class TimeSeriesPersistence:
         f2 = self.entropy_summary_function_sup
         return norm(f1 - f2, ord=self.ENTROPY_SUMMARY_DIVERGENCE_P_VALUE)
 
+    @property
+    def entropy_summary_divergence_emd(self):
+        f1 = self.entropy_summary_function_sub
+        f2 = self.entropy_summary_function_sup
+        return earth_movers_distance(f1, f2)
+
     ## BETTI CURVE
     @property
     def betti_curve_divergence(self):
         f1 = self.betti_curve_function_sub
         f2 = self.betti_curve_function_sup
         return norm(f1 - f2, ord=self.BETTI_CURVE_DIVERGENCE_P_VALUE)
+
+    @property
+    def betti_curve_divergence_emd(self):
+        f1 = self.betti_curve_function_sub
+        f2 = self.betti_curve_function_sup
+        return earth_movers_distance(f1, f2)
 
     ## PERSISTENCE SILHOUETTE
     @property
@@ -425,6 +443,12 @@ class TimeSeriesPersistence:
         f2 = self.persistence_silhouette_function_sup
         return norm(f1 - f2, ord=self.PERSISTENCE_SILHOUETTE_DIVERGENCE_P_VALUE)
 
+    @property
+    def persistence_silhouette_divergence_emd(self):
+        f1 = self.persistence_silhouette_function_sub
+        f2 = self.persistence_silhouette_function_sup
+        return earth_movers_distance(f1, f2)
+
     ## PERSISTENCE LIFESPAN
     @property
     def persistence_lifespan_curve_divergence(self):
@@ -432,12 +456,24 @@ class TimeSeriesPersistence:
         f2 = self.persistence_lifespan_curve_function_sup
         return norm(f1 - f2, ord=self.PERSISTENCE_LIFESPAN_DIVERGENCE_P_VALUE)
 
+    @property
+    def persistence_lifespan_curve_divergence_emd(self):
+        f1 = self.persistence_lifespan_curve_function_sub
+        f2 = self.persistence_lifespan_curve_function_sup
+        return earth_movers_distance(f1, f2)
+
     ## STATISTICS
     @property
     def persistence_statistics_divergence(self):
         v1 = self.persistence_statistics_vector_sub
         v2 = self.persistence_statistics_vector_sup
         return norm(v1 - v2, ord=self.PERSISTENCE_STATISTICS_DIVERGENCE_P_VALUE)
+
+    @property
+    def persistence_statistics_divergence_emd(self):
+        v1 = self.persistence_statistics_vector_sub
+        v2 = self.persistence_statistics_vector_sup
+        return earth_movers_distance(v1, v2)
 
     ## BOTTLENECK
     @property

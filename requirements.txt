@@ -18,6 +18,7 @@ Cython==0.29.32
 debugpy==1.6.7
 decorator==5.1.1
 defusedxml==0.7.1
+DendroPy==4.6.1
 Deprecated==1.2.13
 dtaidistance==2.3.10
 exceptiongroup==1.1.1
@@ -25,6 +26,7 @@ executing==1.2.0
 fastjsonschema==2.17.1
 fonttools==4.38.0
 fqdn==1.5.1
+future==0.18.3
 giotto-ph==0.2.2
 giotto-tda==0.6.0
 gudhi==3.7.0
@@ -64,6 +66,7 @@ nbconvert==7.6.0
 nbformat==5.9.0
 nest-asyncio==1.5.6
 networkx==3.1
+nolds==0.5.2
 notebook==6.5.4
 notebook_shim==0.2.3
 numba==0.56.4
@@ -87,6 +90,7 @@ psutil==5.9.5
 ptyprocess==0.7.0
 pure-eval==0.2.2
 pycparser==2.21
+pyentrp==0.8.4
 pyflagser==0.4.5
 Pygments==2.15.1
 pyparsing==3.0.9
