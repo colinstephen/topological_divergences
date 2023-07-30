@@ -444,7 +444,15 @@ class TimeSeriesMergeTree:
 
         return self._dmt_interleaving_divergence
 
+    @lru_cache
     def path_length_divergence(self, order=1):
         dist1 = self.leaf_path_length_distribution(order=order, superlevel=False)
         dist2 = self.leaf_path_length_distribution(order=order, superlevel=True)
         return wasserstein_distance(dist1, dist2)
+    
+    @lru_cache
+    def path_length_divergence_mean(self, order_min=1, order_max=20, order_step=1):
+        pld = []
+        for order in range(order_min, order_max+1, order_step):
+            pld.append(self.path_length_divergence(order=order))
+        return np.mean(pld)
