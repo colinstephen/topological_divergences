@@ -3,6 +3,7 @@ import numpy as np
 import vectorization as vec
 
 from numpy.linalg import norm
+from teaspoon.TDA.PHN import point_summaries
 from gudhi import bottleneck_distance
 from gudhi.wasserstein import wasserstein_distance
 from scipy.stats import wasserstein_distance as earth_movers_distance
@@ -265,19 +266,22 @@ class TimeSeriesPersistence:
         return dict(
             stats_sub=self.persistence_statistics_vector_sub,
             stats_sup=self.persistence_statistics_vector_sup,
-            stats_all=self.persistence_statistics_vector_full,
+            stats_full=self.persistence_statistics_vector_full,
             entropy_sub=self.entropy_summary_function_sub,
             entropy_sup=self.entropy_summary_function_sup,
-            entropy_all=self.entropy_summary_function_full,
+            entropy_full=self.entropy_summary_function_full,
             betti_sub=self.betti_curve_function_sub,
             betti_sup=self.betti_curve_function_sup,
-            betti_all=self.betti_curve_function_full,
+            betti_full=self.betti_curve_function_full,
             silhouette_sub=self.persistence_silhouette_function_sub,
             silhouette_sup=self.persistence_silhouette_function_sup,
-            silhouette_all=self.persistence_silhouette_function_full,
+            silhouette_full=self.persistence_silhouette_function_full,
             lifespan_sub=self.persistence_lifespan_curve_function_sub,
             lifespan_sup=self.persistence_lifespan_curve_function_sup,
-            lifespan_all=self.persistence_lifespan_curve_function_full,
+            lifespan_full=self.persistence_lifespan_curve_function_full,
+            point_summary_sub=self.point_summary_sub,
+            point_summary_sup=self.point_summary_sup,
+            point_summary_full=self.point_summary_full,
         )
 
     ## PERSISTENCE STATISTICS VECTOR
@@ -388,6 +392,25 @@ class TimeSeriesPersistence:
                 self.persistence_lifespan_curve_function_sup,
             )
         )
+    
+    ## PERSISTENCE POINT SUMMARY
+    
+    @property
+    def point_summary_sub(self):
+        return point_summaries([np.array([]), self.sublevel_diagram], np.ones((len(self._time_series), len(self._time_series))))
+    
+    @property
+    def point_summary_sup(self):
+        return point_summaries([np.array([]), self.superlevel_diagram_flipped], np.ones((len(self._time_series), len(self._time_series))))
+
+    @property
+    def point_summary_full(self):
+        return np.concatenate(
+            (
+                self.point_summary_sub,
+                self.point_summary_sup
+            )
+        )
 
     ####################################################################
     ## Divergences of super and sub level persistence representations ##
@@ -396,6 +419,9 @@ class TimeSeriesPersistence:
     @property
     def divergences(self):
         return dict(
+            point_summary_entropy=self.point_summary_entropy_divergence,
+            point_summary_max_persistence_ratio=self.point_summary_max_persistence_ratio_divergence,
+            point_summary_homology_class_ratio=self.point_summary_homology_class_ratio_divergence,
             entropy=self.entropy_summary_divergence,
             betti=self.betti_curve_divergence,
             silhouette=self.persistence_silhouette_divergence,
@@ -409,6 +435,27 @@ class TimeSeriesPersistence:
             bottleneck=self.bottleneck_divergence,
             wasserstein=self.wasserstein_divergence,
         )
+    
+    ## POINT SUMMARY ENTROPY
+    @property
+    def point_summary_entropy_divergence(self):
+        e1 = self.point_summary_sub[1]
+        e2 = self.point_summary_sup[1]
+        return abs(e1 - e2)
+    
+    ## POINT SUMMARY MAX PERSISTENCE RATIO
+    @property
+    def point_summary_max_persistence_ratio_divergence(self):
+        e1 = self.point_summary_sub[0]
+        e2 = self.point_summary_sup[0]
+        return abs(e1 - e2)
+    
+    ## POINT SUMMARY HOMOLOGY CLASS RATIO
+    @property
+    def point_summary_homology_class_ratio_divergence(self):
+        e1 = self.point_summary_sub[2]
+        e2 = self.point_summary_sup[2]
+        return abs(e1 - e2)
 
     ## ENTROPY CURVE
     @property
