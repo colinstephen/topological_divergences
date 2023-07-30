@@ -4,3 +4,6 @@
 [submodule "teaspoon"]
 	path = teaspoon
 	url = https://github.com/TeaspoonTDA/teaspoon.git
+[submodule "BDI-ED"]
+	path = BDI-ED
+	url = https://github.com/scivislab/BDI-ED.git
