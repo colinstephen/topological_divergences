@@ -116,7 +116,7 @@ soupsieve==2.4.1
 stack-data==0.6.2
 statsmodels==0.14.0
 sympy==1.11.1
-teaspoon @ file:///Users/Shared/Coding/time_series_persistent_homology/teaspoon
+teaspoon @ git+https://github.com/colinstephen/teaspoon.git@711b3947983e882fa71a18c6e3e256a54b0219ab
 tenacity==8.2.2
 terminado==0.17.1
 texttable==1.6.7

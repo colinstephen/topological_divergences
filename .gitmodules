@@ -1,9 +1,6 @@
 [submodule "decorated_merge_trees"]
 	path = decorated_merge_trees
 	url = git@github.com:colinstephen/Decorated-Merge-Trees.git
-[submodule "teaspoon"]
-	path = teaspoon
-	url = git@github.com:colinstephen/teaspoon.git
 [submodule "BDI_ED"]
 	path = BDI_ED
 	url = git@github.com:colinstephen/branch_decomposition_independent_edit_distances.git
