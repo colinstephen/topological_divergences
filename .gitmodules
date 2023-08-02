@@ -6,4 +6,4 @@
 	url = https://github.com/TeaspoonTDA/teaspoon.git
 [submodule "BDI_ED"]
 	path = BDI_ED
-	url = https://github.com/scivislab/BDI-ED.git
+	url = git@github.com:colinstephen/branch_decomposition_independent_edit_distances.git
