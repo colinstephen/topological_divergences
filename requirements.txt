@@ -116,7 +116,7 @@ soupsieve==2.4.1
 stack-data==0.6.2
 statsmodels==0.14.0
 sympy==1.11.1
-teaspoon @ ./teaspoon
+teaspoon @ file:///Users/Shared/Coding/time_series_persistent_homology/teaspoon
 tenacity==8.2.2
 terminado==0.17.1
 texttable==1.6.7
