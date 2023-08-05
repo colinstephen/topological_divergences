@@ -8,6 +8,8 @@ from decorated_merge_trees.DMT_tools import MergeTree
 from decorated_merge_trees.DMT_tools import decorate_merge_tree_networks
 from decorated_merge_trees.DMT_tools import merge_tree_interleaving_distance
 from decorated_merge_trees.DMT_tools import DMT_interleaving_distance
+from BDI_ED.baseMetrics import cost_wasserstein_branch
+from BDI_ED.mergeTreeEdit_branch import branchMappingDistance
 from TimeSeriesPersistence import TimeSeriesPersistence as TSP
 
 
@@ -28,6 +30,7 @@ class TimeSeriesMergeTree:
         self._superlevel_tree_nx = None
         self._persistence = None
         self._interleaving_divergence = None
+        self._bdied_divergence = None
         self._dmt_interleaving_divergence = None
         self.INTERLEAVING_DIVERGENCE_MESH = INTERLEAVING_DIVERGENCE_MESH
         self.DMT_ALPHA = DMT_ALPHA
@@ -38,7 +41,7 @@ class TimeSeriesMergeTree:
         # Decorating merge trees requires persistence information
         if self._persistence is None:
             self._persistence = TSP(self._time_series)
-        # Can now access `self.sublevel_diagram` etc. 
+        # Can now access `self.sublevel_diagram` etc.
         return self._persistence
 
     @property
@@ -84,7 +87,7 @@ class TimeSeriesMergeTree:
                 )
             )
         return self._superlevel_tree_dmt
-    
+
     @property
     def sublevel_tree_nx(self) -> nx.Graph:
         if self._sublevel_tree_nx is None:
@@ -114,10 +117,11 @@ class TimeSeriesMergeTree:
                 nx_tree.edges[edge]["weight"] = abs(height1 - height2)
             self._superlevel_tree_nx = nx_tree
         return self._superlevel_tree_nx
-    
-    @lru_cache
-    def leaf_path_distances(self, superlevel=False, weighted=False, order=1) -> np.array:
 
+    @lru_cache
+    def leaf_path_distances(
+        self, superlevel=False, weighted=False, order=1
+    ) -> np.array:
         if superlevel:
             tree = self.superlevel_tree_nx
         else:
@@ -130,20 +134,26 @@ class TimeSeriesMergeTree:
 
         leaves = [node for node, degree in tree.degree() if degree == 1]
         n = len(leaves)
-        distances = np.zeros((n,n))
+        distances = np.zeros((n, n))
 
-        for i in range(n-order):
-            distances[i, i + order] = nx.shortest_path_length(tree, source=leaves[i], target=leaves[i+order], weight=weight)
+        for i in range(n - order):
+            distances[i, i + order] = nx.shortest_path_length(
+                tree, source=leaves[i], target=leaves[i + order], weight=weight
+            )
         return distances.diagonal(offset=order)
-    
+
     @lru_cache
     def leaf_path_length_distribution(self, order=1, superlevel=False) -> np.array:
-        distances = self.leaf_path_distances(superlevel=superlevel, weighted=False, order=order)
+        distances = self.leaf_path_distances(
+            superlevel=superlevel, weighted=False, order=order
+        )
         counts = Counter(distances)
         total_count = len(distances)
         empirical_distribution = {int(k): v / total_count for k, v in counts.items()}
         distribution = np.zeros(self.DISTRIBUTION_VECTOR_LENGTH)
         for k in empirical_distribution.keys():
+            if k >= self.DISTRIBUTION_VECTOR_LENGTH:
+                break
             distribution[k] = empirical_distribution[k]
         return distribution
 
@@ -408,6 +418,7 @@ class TimeSeriesMergeTree:
             interleaving=self.interleaving_divergence,
             dmt_interleaving=self.dmt_interleaving_divergence,
             leaf_to_leaf_path_length=self.path_length_divergence,
+            bdied=self.bdied_divergence,
         )
 
     @property
@@ -422,10 +433,32 @@ class TimeSeriesMergeTree:
         return self._interleaving_divergence
 
     @property
+    def bdied_divergence(self):
+        # Branch decomposition independent edit distance
+        if self._bdied_divergence is None:
+            tree1, heights1 = self.sublevel_tree_higra
+            tree2, heights2 = self.superlevel_tree_higra
+            children1 = [tree1.children(node) for node in tree1.vertices()]
+            children2 = [tree2.children(node) for node in tree2.vertices()]
+            rootID1 = tree1.root()
+            rootID2 = tree2.root()
+            nodeScalars1 = heights1
+            nodeScalars2 = heights2
+            self._bdied_divergence = branchMappingDistance(
+                nodeScalars1,
+                children1,
+                rootID1,
+                nodeScalars2,
+                children2,
+                rootID2,
+                cost_wasserstein_branch,
+                False,
+            )
+        return self._bdied_divergence
+
+    @property
     def dmt_interleaving_divergence(self):
-
         if self._dmt_interleaving_divergence is None:
-
             MT1 = self.sublevel_tree_dmt
             tree1, height1 = MT1.tree, MT1.height
             pd1 = self.persistence.sublevel_diagram
@@ -439,7 +472,11 @@ class TimeSeriesMergeTree:
             MT2.fit_barcode(degree=0, leaf_barcode=leaf_barcode2)
 
             self._dmt_interleaving_divergence = DMT_interleaving_distance(
-                MT1, MT2, self.INTERLEAVING_DIVERGENCE_MESH, alpha=self.DMT_ALPHA, verbose=False
+                MT1,
+                MT2,
+                self.INTERLEAVING_DIVERGENCE_MESH,
+                alpha=self.DMT_ALPHA,
+                verbose=False,
             )
 
         return self._dmt_interleaving_divergence
@@ -449,10 +486,10 @@ class TimeSeriesMergeTree:
         dist1 = self.leaf_path_length_distribution(order=order, superlevel=False)
         dist2 = self.leaf_path_length_distribution(order=order, superlevel=True)
         return wasserstein_distance(dist1, dist2)
-    
+
     @lru_cache
-    def path_length_divergence_mean(self, order_min=1, order_max=20, order_step=1):
+    def path_length_divergence_stat(self, stat_func=np.mean, order_min=1, order_max=20, order_step=1):
         pld = []
-        for order in range(order_min, order_max+1, order_step):
+        for order in range(order_min, order_max + 1, order_step):
             pld.append(self.path_length_divergence(order=order))
-        return np.mean(pld)
+        return stat_func(pld)

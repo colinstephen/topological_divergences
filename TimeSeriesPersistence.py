@@ -26,6 +26,7 @@ class TimeSeriesPersistence:
         time_series: np.array,
         ENTROPY_SUMMARY_RESOLUTION=100,
         BETTI_CURVE_RESOLUTION=100,
+        BETTI_CURVE_NORM_P_VALUE=1.0,
         SILHOUETTE_RESOLUTION=100,
         SILHOUETTE_WEIGHT=1,
         LIFESPAN_CURVE_RESOLUTION=100,
@@ -34,7 +35,7 @@ class TimeSeriesPersistence:
         ENTROPY_SUMMARY_DIVERGENCE_P_VALUE=2.0,
         PERSISTENCE_STATISTICS_DIVERGENCE_P_VALUE=2.0,
         WASSERSTEIN_DIVERGENCE_P_VALUE=1.0,
-        BETTI_CURVE_DIVERGENCE_P_VALUE=2.0,
+        BETTI_CURVE_DIVERGENCE_P_VALUE=1.0,
         PERSISTENCE_SILHOUETTE_DIVERGENCE_P_VALUE=2.0,
         PERSISTENCE_LIFESPAN_DIVERGENCE_P_VALUE=2.0,
     ) -> None:
@@ -46,6 +47,7 @@ class TimeSeriesPersistence:
         # defaults for vectorisations
         self.ENTROPY_SUMMARY_RESOLUTION = ENTROPY_SUMMARY_RESOLUTION
         self.BETTI_CURVE_RESOLUTION = BETTI_CURVE_RESOLUTION
+        self.BETTI_CURVE_NORM_P_VALUE = BETTI_CURVE_NORM_P_VALUE
         self.SILHOUETTE_RESOLUTION = SILHOUETTE_RESOLUTION
         self.SILHOUETTE_WEIGHT = SILHOUETTE_WEIGHT
         self.LIFESPAN_CURVE_RESOLUTION = LIFESPAN_CURVE_RESOLUTION
@@ -282,6 +284,8 @@ class TimeSeriesPersistence:
             point_summary_sub=self.point_summary_sub,
             point_summary_sup=self.point_summary_sup,
             point_summary_full=self.point_summary_full,
+            betti_norm_sub=self.point_summary_betti_norm_sub,
+            betti_norm_sup=self.point_summary_betti_norm_sup,
         )
 
     ## PERSISTENCE STATISTICS VECTOR
@@ -411,6 +415,14 @@ class TimeSeriesPersistence:
                 self.point_summary_sup
             )
         )
+    
+    @property
+    def point_summary_betti_norm_sub(self):
+        return norm(self.betti_curve_function_sub, ord=self.BETTI_CURVE_NORM_P_VALUE)
+
+    @property
+    def point_summary_betti_norm_sup(self):
+        return norm(self.betti_curve_function_sup, ord=self.BETTI_CURVE_NORM_P_VALUE)
 
     ####################################################################
     ## Divergences of super and sub level persistence representations ##
