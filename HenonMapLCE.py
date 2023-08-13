@@ -1,49 +1,10 @@
 """
 Hénon system Lyapunov exponent approximation and trajectory generation.
 
-Modified from original sources:
+Based on:
 - https://csc.ucdavis.edu/~chaos/courses/nlp/Software/partH.html
 - https://csc.ucdavis.edu/~chaos/courses/nlp/Software/PartH_Code/HenonMapLCE.py
 """
-
-
-# HenonMap.py:
-#   Estimate the Henon map's Lyapunov Characteristic Exponent,
-#       using the pull-back method.
-#       This should be compared to directly using Jacobian eigenvalues.
-#   Also, estimate the area contraction rate and the fractal dimension,
-#       using the Kaplan-Yorke formula.
-#   Plot out iterates of Henon's 2D map, listing the LCE estimate.
-#
-# The Henon Map is given by
-#     x_n+1 = f( x_n , y_n )
-#     y_n+1 = g( x_n , y_n )
-# with
-#     f(x,y) = y + 1 - a x^2
-#     g(x,y) = b x
-#
-# The state space is R^2
-# and the control parameters range in
-#       a in [0,2]
-#       b in [0,1]
-# Henon's original parameters for a chaotic attractor:
-#       (a,b) = (1.4,0.3)
-#
-# It has a tangent map (d = partial derivative)
-#     df/dx (x,y) = - 2 a x
-#     df/dy (x,y) = 1
-#     dg/dx (x,y) = b
-#     dg/dy (x,y) = 0
-# and area contraction given by
-#     Determinant(Jacobian(x,y)) = -b
-# As a check, we must have total contraction = Sum of LCEs
-#     log(abs(D)) = maxLCE + minLCE
-# Numerical check: at (a,b) = (1.4,0.3)
-#     maxLCE ~  0.61
-#     minLCE ~ -2.34
-#     log(D) ~ -1.73
-# These use base-2 logs
-# 
 
 import numpy as np
 
@@ -161,11 +122,6 @@ def henon_lce(
 	maxLCE = maxLCE / float(nIterates)
 	if fullLceSpectrum:
 		minLCE = minLCE / float(nIterates)
-
-	# Calculate contraction factor, for comparison
-	#    We know this is independent of (x,y).
-	#    Otherwise, we'd have to estimate it along the trajectory, too.
-	# Contraction = log(abs(HenonMapDetJac(a,b,0.0,0.0)))
 
 	result = dict()
 	result["params"] = henonParams
