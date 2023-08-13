@@ -9,8 +9,10 @@ def LogisticMapTangent(r, x, dx):
 def logistic_lce(
     logisticParams = dict(r=4.0),
     logisticState = dict(x=0.2),
-    nTransients = 200,
-    nIterates = 10000,
+    nTransients = 100,
+    nIterates = 1000,
+    nTransients_lce = 200,
+    nIterates_lce = 10000,
     includeTrajectory = False,
 ):
     r = logisticParams["r"]
@@ -32,7 +34,7 @@ def logistic_lce(
     # Initial tangent vector
     e1x = 1.0
 
-    for n in range(0, nTransients):
+    for n in range(0, nTransients_lce):
         xState = LogisticMap(r, xState)
 
         # Evolve tangent vector for LCE
@@ -44,7 +46,7 @@ def logistic_lce(
 
     LCE = 0.0
 
-    for n in range(0, nIterates):
+    for n in range(0, nIterates_lce):
         xState = LogisticMap(r, xState)
 
         # Evolve tangent vector for LCE
@@ -58,11 +60,16 @@ def logistic_lce(
         LCE = LCE + np.log(d)
 
     # Convert to per-iterate LCE
-    LCE = LCE / float(nIterates)
+    LCE = LCE / float(nIterates_lce)
 
     result = dict()
+    result["system"] = "logistic"
     result["params"] = logisticParams
     result["initial"] = logisticState
+    result["iterates"] = dict(
+		trajectory={"nTransients":nTransients, "nIterates":nIterates},
+		lce={"nTransients":nTransients_lce, "nIterates":nIterates_lce}
+		)
     result["lce"] = (LCE,)
     result["trajectory"] = np.array(x) if includeTrajectory else np.array([])
 
