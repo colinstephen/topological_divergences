@@ -69,9 +69,11 @@ def TangentFlowRKThreeD(a,b,c,x,y,z,df,dg,dh,dx,dy,dz,dt):
 
 def lorenz_lce(
 	dt=0.01,  # integration time step
-	nTransients=100,  # iterates to ignore
-	nIterates=10000,  # time steps to integrate over
-	nItsPerPB=10,
+	nTransients=100,  # iterates to ignore for trajectory
+	nIterates=1000,  # time steps to integrate over for trajectory
+	nTransients_lce=100,  # iterates to ignore for lce estimation
+	nIterates_lce=10000,  # time steps to integrate over for lce estimation
+	nItsPerPB=10,  # time steps for pullback calculation
 	lorenzParams=dict(sigma=10.0, R=28.0, b=8/3),  # control parameters
 	lorenzState=dict(x=5.0, y=5.0, z=5.0),  # initial state
 	includeTrajectory=False,  # return the trajectory in the result
@@ -116,7 +118,7 @@ def lorenz_lce(
 
 	# Iterate away transients and let the tangent vectors align
 	#	with the global stable and unstable manifolds
-	for n in range(0,nTransients):
+	for n in range(0,nTransients_lce):
 		for i in range(nItsPerPB):
 			xState,yState,zState = RKThreeD(sigma,R,b,xState,yState,zState,\
 				LorenzXDot,LorenzYDot,LorenzZDot,dt)
@@ -168,7 +170,7 @@ def lorenz_lce(
 		LCE2 = 0.0
 		LCE3 = 0.0
 
-	for n in range(0,nIterates):
+	for n in range(0,nIterates_lce):
 		for i in range(nItsPerPB):
 			xState,yState,zState = RKThreeD(sigma,R,b,xState,yState,zState,\
 				LorenzXDot,LorenzYDot,LorenzZDot,dt)
@@ -220,7 +222,7 @@ def lorenz_lce(
 			LCE3 += np.log(d)
 
 	# Convert to per-iterate, per-second LCEs
-	IntegrationTime = dt * float(nItsPerPB) * float(nIterates)
+	IntegrationTime = dt * float(nItsPerPB) * float(nIterates_lce)
 	LCE1 = LCE1 / IntegrationTime
 
 	if fullLceSpectrum:
@@ -228,8 +230,13 @@ def lorenz_lce(
 		LCE3 = LCE3 / IntegrationTime
 
 	result = dict()
+	result["system"] = "lorenz"
 	result["params"] = lorenzParams
 	result["initial"] = lorenzState
+	result["iterates"] = dict(
+		trajectory={"nTransients":nTransients, "nIterates":nIterates},
+		lce={"nTransients":nTransients_lce, "nIterates":nIterates_lce, "nItsPerPB":nItsPerPB}
+		)
 	result["lce"] = (LCE1, LCE2, LCE3) if fullLceSpectrum else (LCE1,)
 	result["trajectory"] = np.array([xyz for xyz in zip(x, y, z)]) if includeTrajectory else np.array([])
 

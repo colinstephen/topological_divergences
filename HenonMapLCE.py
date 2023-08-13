@@ -17,8 +17,10 @@ def HenonMapTangent(a,b,x,y,dx,dy):
 def henon_lce(
 	henonParams = dict(a=1.4, b=0.3),
 	henonState = dict(x=0.1, y=0.3),
-	nTransients = 200,
-	nIterates = 10000,
+	nTransients = 100,
+	nIterates = 1000,
+	nTransients_lce = 200,
+	nIterates_lce = 10000,
 	includeTrajectory = False,
 	fullLceSpectrum = False,
 ):
@@ -54,7 +56,7 @@ def henon_lce(
 
 	# Iterate away transients and let the tangent vectors align
 	#    with the global stable and unstable manifolds
-	for n in range(0,nTransients):
+	for n in range(0,nTransients_lce):
 		xState, yState = HenonMap(a,b,xState,yState)
 
 		# Evolve tangent vector for maxLCE
@@ -86,7 +88,7 @@ def henon_lce(
 	if fullLceSpectrum:
 		minLCE = 0.0
 
-	for n in range(0,nIterates):
+	for n in range(0,nIterates_lce):
 		# Get next state
 		xState, yState = HenonMap(a,b,xState,yState)
 		
@@ -119,13 +121,18 @@ def henon_lce(
 			minLCE = minLCE + np.log(d)
 
 	# Convert to per-iterate LCEs
-	maxLCE = maxLCE / float(nIterates)
+	maxLCE = maxLCE / float(nIterates_lce)
 	if fullLceSpectrum:
-		minLCE = minLCE / float(nIterates)
+		minLCE = minLCE / float(nIterates_lce)
 
 	result = dict()
+	result["system"] = "henon"
 	result["params"] = henonParams
 	result["initial"] = henonState
+	result["iterates"] = dict(
+		trajectory={"nTransients":nTransients, "nIterates":nIterates},
+		lce={"nTransients":nTransients_lce, "nIterates":nIterates_lce}
+		)
 	result["lce"] = (maxLCE, minLCE) if fullLceSpectrum else (maxLCE,)
 	result["trajectory"] = np.array([xy for xy in zip(x, y)]) if includeTrajectory else np.array([])
 
