@@ -234,8 +234,8 @@ def lorenz_lce(
 	result["params"] = lorenzParams
 	result["initial"] = lorenzState
 	result["iterates"] = dict(
-		trajectory={"nTransients":nTransients, "nIterates":nIterates},
-		lce={"nTransients":nTransients_lce, "nIterates":nIterates_lce, "nItsPerPB":nItsPerPB}
+		trajectory={"nTransients":nTransients, "nIterates":nIterates, "dt":dt},
+		lce={"nTransients":nTransients_lce, "nIterates":nIterates_lce, "nItsPerPB":nItsPerPB, "dt":dt}
 		)
 	result["lce"] = (LCE1, LCE2, LCE3) if fullLceSpectrum else (LCE1,)
 	result["trajectory"] = np.array([xyz for xyz in zip(x, y, z)]) if includeTrajectory else np.array([])
