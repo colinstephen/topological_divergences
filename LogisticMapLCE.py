@@ -7,16 +7,16 @@ def LogisticMapTangent(r, x, dx):
     return r - 2 * r * x
 
 def logistic_lce(
-    logisticParams = dict(r=4.0),
-    logisticState = dict(x=0.2),
+    mapParams = dict(r=4.0),
+    initialState = dict(x=0.2),
     nTransients = 100,
     nIterates = 1000,
     nTransients_lce = 200,
     nIterates_lce = 10000,
     includeTrajectory = False,
 ):
-    r = logisticParams["r"]
-    xState = logisticState["x"]
+    r = mapParams["r"]
+    xState = initialState["x"]
 
     if includeTrajectory:
 
@@ -29,7 +29,7 @@ def logistic_lce(
             xState = LogisticMap(r,x[n])
             x.append( xState )
 
-    xState = logisticState["x"]
+    xState = initialState["x"]
 
     # Initial tangent vector
     e1x = 1.0
@@ -64,8 +64,8 @@ def logistic_lce(
 
     result = dict()
     result["system"] = "logistic"
-    result["params"] = logisticParams
-    result["initial"] = logisticState
+    result["params"] = mapParams
+    result["initial"] = initialState
     result["iterates"] = dict(
 		trajectory={"nTransients":nTransients, "nIterates":nIterates},
 		lce={"nTransients":nTransients_lce, "nIterates":nIterates_lce}
@@ -77,5 +77,5 @@ def logistic_lce(
 
 if __name__ == "__main__":
     rr = np.sort(np.random.uniform(3,4,10))
-    lces = [logistic_lce(logisticParams=dict(r=r), includeTrajectory=True) for r in rr]
+    lces = [logistic_lce(mapParams=dict(r=r), includeTrajectory=True) for r in rr]
     print(lces[0])

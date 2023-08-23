@@ -23,8 +23,8 @@ def IkedaMapTangent(a,x,y,dx,dy):
 	return Dx, Dy
 
 def ikeda_lce(
-	ikedaParams = dict(a=0.8),
-	ikedaState = dict(x=0.1, y=0.0),
+	mapParams = dict(a=0.8),
+	initialState = dict(x=0.1, y=0.0),
 	nTransients = 100,
 	nIterates = 1000,
 	nTransients_lce = 200,
@@ -32,8 +32,8 @@ def ikeda_lce(
 	includeTrajectory = False,
 	fullLceSpectrum = False,
 ):
-	a = ikedaParams["a"]
-	xState, yState = ikedaState["x"], ikedaState["y"]
+	a = mapParams["a"]
+	xState, yState = initialState["x"], initialState["y"]
 
 	if includeTrajectory:
 
@@ -54,7 +54,7 @@ def ikeda_lce(
 			y.append( yState )
 
 	# Initial condition
-	xState, yState = ikedaState["x"], ikedaState["y"]
+	xState, yState = initialState["x"], initialState["y"]
 
 	# Initial tangent vectors
 	e1x = 1.0
@@ -135,8 +135,8 @@ def ikeda_lce(
 
 	result = dict()
 	result["system"] = "ikeda"
-	result["params"] = ikedaParams
-	result["initial"] = ikedaState
+	result["params"] = mapParams
+	result["initial"] = initialState
 	result["iterates"] = dict(
 		trajectory={"nTransients":nTransients, "nIterates":nIterates},
 		lce={"nTransients":nTransients_lce, "nIterates":nIterates_lce}
@@ -148,6 +148,6 @@ def ikeda_lce(
 
 if __name__ == "__main__":
 	aa = np.sort(np.random.uniform(0.5, 1.0, 10))
-	lces = [ikeda_lce(ikedaParams=dict(a=a), includeTrajectory=True, fullLceSpectrum=True) for a in aa]
+	lces = [ikeda_lce(mapParams=dict(a=a), includeTrajectory=True, fullLceSpectrum=True) for a in aa]
 	print(lces[0])
 	print([lce["lce"][0] for lce in lces])

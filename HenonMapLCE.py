@@ -15,8 +15,8 @@ def HenonMapTangent(a,b,x,y,dx,dy):
 	return dy - 2.0 * a * x * dx, b * dx
 
 def henon_lce(
-	henonParams = dict(a=1.4, b=0.3),
-	henonState = dict(x=0.1, y=0.3),
+	mapParams = dict(a=1.4, b=0.3),
+	initialState = dict(x=0.1, y=0.3),
 	nTransients = 100,
 	nIterates = 1000,
 	nTransients_lce = 200,
@@ -24,8 +24,8 @@ def henon_lce(
 	includeTrajectory = False,
 	fullLceSpectrum = False,
 ):
-	a, b = henonParams["a"], henonParams["b"]
-	xState, yState = henonState["x"], henonState["y"]
+	a, b = mapParams["a"], mapParams["b"]
+	xState, yState = initialState["x"], initialState["y"]
 
 	if includeTrajectory:
 
@@ -46,7 +46,7 @@ def henon_lce(
 			y.append( yState )
 
 	# Initial condition
-	xState, yState = henonState["x"], henonState["y"]
+	xState, yState = initialState["x"], initialState["y"]
 
 	# Initial tangent vectors
 	e1x = 1.0
@@ -127,8 +127,8 @@ def henon_lce(
 
 	result = dict()
 	result["system"] = "henon"
-	result["params"] = henonParams
-	result["initial"] = henonState
+	result["params"] = mapParams
+	result["initial"] = initialState
 	result["iterates"] = dict(
 		trajectory={"nTransients":nTransients, "nIterates":nIterates},
 		lce={"nTransients":nTransients_lce, "nIterates":nIterates_lce}
@@ -140,5 +140,5 @@ def henon_lce(
 
 if __name__ == "__main__":
 	aa = np.sort(np.random.uniform(0.8, 1.4, 10))
-	lces = [henon_lce(henonParams=dict(a=a, b=0.3), includeTrajectory=True, fullLceSpectrum=True) for a in aa]
+	lces = [henon_lce(mapParams=dict(a=a, b=0.3), includeTrajectory=True, fullLceSpectrum=True) for a in aa]
 	print(lces[0])
