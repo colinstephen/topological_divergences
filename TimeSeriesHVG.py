@@ -165,8 +165,9 @@ class TimeSeriesHVG:
             self.degree_distribution_top, self.degree_distribution_bottom
         )
 
-    def degree_lp_divergence(self, p=1):
+    @property
+    def degree_lp_divergence(self):
         return norm(
             self.degree_distribution_top - self.degree_distribution_bottom,
-            ord=p,
+            ord=self.DEGREE_DISTRIBUTION_DIVERGENCE_P_VALUE,
         )
