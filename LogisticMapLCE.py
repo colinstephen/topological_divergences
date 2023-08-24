@@ -1,33 +1,36 @@
 import numpy as np
 
-def LogisticMap(r,x):
+
+def LogisticMap(r, x):
     return r * x * (1 - x)
+
 
 def LogisticMapTangent(r, x, dx):
     return r - 2 * r * x
 
+
 def logistic_lce(
-    mapParams = dict(r=4.0),
-    initialState = dict(x=0.2),
-    nTransients = 100,
-    nIterates = 1000,
-    nTransients_lce = 200,
-    nIterates_lce = 10000,
-    includeTrajectory = False,
+    mapParams=dict(r=4.0),
+    initialState=dict(x=0.2),
+    nTransients=100,
+    nIterates=1000,
+    nTransients_lce=200,
+    nIterates_lce=10000,
+    includeTrajectory=False,
+    fullLceSpectrum=True,  # not used, included so function signature matches those for >1-dimensional systems
 ):
     r = mapParams["r"]
     xState = initialState["x"]
 
     if includeTrajectory:
-
         for n in range(0, nTransients):
-            xState = LogisticMap(r,xState)
+            xState = LogisticMap(r, xState)
 
         x = [xState]
 
         for n in range(0, nIterates):
-            xState = LogisticMap(r,x[n])
-            x.append( xState )
+            xState = LogisticMap(r, x[n])
+            x.append(xState)
 
     xState = initialState["x"]
 
@@ -41,7 +44,7 @@ def logistic_lce(
         e1x = LogisticMapTangent(r, xState, e1x)
 
         # Normalize the tangent vector's length
-        d = np.sqrt(e1x*e1x)
+        d = np.sqrt(e1x * e1x)
         e1x = e1x / d
 
     LCE = 0.0
@@ -53,7 +56,7 @@ def logistic_lce(
         e1x = LogisticMapTangent(r, xState, e1x)
 
         # Normalize the tangent vector's length
-        d = np.sqrt(e1x*e1x)
+        d = np.sqrt(e1x * e1x)
         e1x = e1x / d
 
         # Accumulate the stretching factor (tangent vector's length)
@@ -67,15 +70,16 @@ def logistic_lce(
     result["params"] = mapParams
     result["initial"] = initialState
     result["iterates"] = dict(
-		trajectory={"nTransients":nTransients, "nIterates":nIterates},
-		lce={"nTransients":nTransients_lce, "nIterates":nIterates_lce}
-		)
+        trajectory={"nTransients": nTransients, "nIterates": nIterates},
+        lce={"nTransients": nTransients_lce, "nIterates": nIterates_lce},
+    )
     result["lce"] = (LCE,)
-    result["trajectory"] = np.array(x) if includeTrajectory else np.array([])
+    result["trajectory"] = np.array(x).reshape(-1,1) if includeTrajectory else np.array([])
 
     return result
 
+
 if __name__ == "__main__":
-    rr = np.sort(np.random.uniform(3,4,10))
+    rr = np.sort(np.random.uniform(3, 4, 10))
     lces = [logistic_lce(mapParams=dict(r=r), includeTrajectory=True) for r in rr]
     print(lces[0])
