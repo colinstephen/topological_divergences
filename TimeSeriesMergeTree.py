@@ -20,6 +20,7 @@ class TimeSeriesMergeTree:
         INTERLEAVING_DIVERGENCE_MESH=0.5,
         DMT_ALPHA=0.5,
         DISTRIBUTION_VECTOR_LENGTH=100,
+        LEAF_NEIGHBOUR_OFFSET=1,
     ) -> None:
         self._time_series = time_series
         self._sublevel_tree_higra = None
@@ -35,6 +36,7 @@ class TimeSeriesMergeTree:
         self.INTERLEAVING_DIVERGENCE_MESH = INTERLEAVING_DIVERGENCE_MESH
         self.DMT_ALPHA = DMT_ALPHA
         self.DISTRIBUTION_VECTOR_LENGTH = DISTRIBUTION_VECTOR_LENGTH
+        self.LEAF_NEIGHBOUR_OFFSET = LEAF_NEIGHBOUR_OFFSET
 
     @property
     def persistence(self):
@@ -416,9 +418,9 @@ class TimeSeriesMergeTree:
     def divergences(self):
         return dict(
             interleaving=self.interleaving_divergence,
-            dmt_interleaving=self.dmt_interleaving_divergence,
+            # dmt_interleaving=self.dmt_interleaving_divergence,
             leaf_to_leaf_path_length=self.path_length_divergence,
-            bdied=self.bdied_divergence,
+            # bdied=self.bdied_divergence,
         )
 
     @property
@@ -481,8 +483,9 @@ class TimeSeriesMergeTree:
 
         return self._dmt_interleaving_divergence
 
-    @lru_cache
-    def path_length_divergence(self, order=1):
+    @property
+    def path_length_divergence(self):
+        order = self.LEAF_NEIGHBOUR_OFFSET
         dist1 = self.leaf_path_length_distribution(order=order, superlevel=False)
         dist2 = self.leaf_path_length_distribution(order=order, superlevel=True)
         return wasserstein_distance(dist1, dist2)
