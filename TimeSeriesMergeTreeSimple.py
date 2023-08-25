@@ -150,7 +150,6 @@ class TimeSeriesMergeTree:
         return dict(
             interleaving=self.interleaving_divergence,
             normalised_interleaving=self.normalised_interleaving_divergence,
-            leaf_to_leaf_path_length=self.path_length_divergence,
         )
 
     @property
