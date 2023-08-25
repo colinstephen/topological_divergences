@@ -1,3 +1,4 @@
+import numpy as np
 import math
 import networkx as nx
 from functools import lru_cache
@@ -206,7 +207,6 @@ if __name__ == "__main__":
         with_labels=True,
         labels={n: (data["height"], data["idx"]) for n, data in G.nodes(data=True)},
     )
-    plt.savefig("outputs/sublevel_tree.png", dpi=300, bbox_inches="tight")
     plt.show()
 
     G2 = superlevel_merge_tree(array)
@@ -218,7 +218,6 @@ if __name__ == "__main__":
         with_labels=True,
         labels={n: (data["height"], data["idx"]) for n, data in G2.nodes(data=True)},
     )
-    plt.savefig("outputs/superlevel_tree.png", dpi=300, bbox_inches="tight")
     plt.show()
 
     G3 = make_increasing(G2)
@@ -230,7 +229,6 @@ if __name__ == "__main__":
         with_labels=True,
         labels={n: (data["height"], data["idx"]) for n, data in G3.nodes(data=True)},
     )
-    plt.savefig("outputs/superlevel_tree_increasing.png", dpi=300, bbox_inches="tight")
     plt.show()
 
     tsmt = TimeSeriesMergeTree(time_series=array)
