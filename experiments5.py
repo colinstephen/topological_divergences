@@ -31,7 +31,10 @@ import pickle
 import numpy as np
 import networkx as nx
 
+from dataclasses import dataclass
+from dataclasses import asdict
 from functools import partial
+from datetime import datetime
 from scipy import stats
 
 from numpy.random import MT19937
@@ -62,26 +65,84 @@ from TimeSeriesPersistence import TimeSeriesPersistence as TSPH
 # ## Configure the experiment data
 
 # %%
-# draw samples from a known random state for reproducibility
-SEED = 42
-randomState = RandomState(MT19937(SeedSequence(SEED)))
+class EXPERIMENT_CONFIG:
+    SEED = 42
+    RANDOM_STATE = RandomState(MT19937(SeedSequence(SEED)))
+    TIME_SERIES_LENGTH = 200
+    NUM_CONTROL_PARAM_SAMPLES = 10
 
-TIME_SERIES_LENGTH = 500
-NUM_CONTROL_PARAM_SAMPLES = 2000
+
+# %% [markdown]
+# ### Allow converting configurations to dictionaries for saving
+
+# %%
+def configdict(cls):
+    """Given a configuration class, convert it and its properties to a dictionary."""
+    attributes = {attr: getattr(cls, attr) for attr in dir(cls) if not callable(getattr(cls, attr)) and not attr.startswith("__")}
+    return {cls.__name__: attributes}
+
+# %% [markdown]
+# ### Set up wrapper for easy saving of results
+
+# %%
+def save_result(filename, data, extra_metadata=None, RESULTS_DIR="outputs/data"):
+    """Save arbitrary data/results for future reference."""
+
+    # use the experimental config to identify the file
+    filename_parts = [
+        f"SEED_{EXPERIMENT_CONFIG.SEED}",
+        f"LENGTH_{EXPERIMENT_CONFIG.TIME_SERIES_LENGTH}",
+        f"SAMPLES_{EXPERIMENT_CONFIG.NUM_CONTROL_PARAM_SAMPLES}",
+        filename,
+        f"{datetime.utcnow()}",
+    ]
+    full_filename = "__".join(filename_parts)
+    path = f"{RESULTS_DIR}/{full_filename}.pkl"
+
+    if extra_metadata is None:
+        extra_metadata = {}
+    metadata = configdict(EXPERIMENT_CONFIG) | extra_metadata
+
+    data_to_save = dict(
+        metadata=metadata,
+        data=data,
+    )
+    with open(path, "wb") as f:
+        pickle.dump(data_to_save, f)
+
+
+# %% [markdown]
+# ### Normalisation
+# 
+# We $z$-normalise all sequences. This helps ensure divergence/distance hyper-parameters (such as the merge tree interleaving distance mesh size) are working at the same scale across the data sets considered.
+
+# %%
+def z_normalise(ts: np.array) -> np.array:
+    mean = np.mean(ts)
+    std = np.std(ts)
+    return (ts - mean) / std
 
 # %% [markdown]
 # ### Logistic
 
 # %%
+class LOGISTIC_CONFIG:
+    R_MIN = 3.5
+    R_MAX = 4.0
+    TRAJECTORY_DIM = 0
+
 logistic_control_params = [
-    dict(r=r) for r in np.sort(randomState.uniform(3.5, 4.0, NUM_CONTROL_PARAM_SAMPLES))
+    dict(r=r)
+    for r in np.sort(
+        EXPERIMENT_CONFIG.RANDOM_STATE.uniform(LOGISTIC_CONFIG.R_MIN, LOGISTIC_CONFIG.R_MAX, EXPERIMENT_CONFIG.NUM_CONTROL_PARAM_SAMPLES)
+    )
 ]
 logistic_dataset = [
-    logistic_lce(mapParams=params, nIterates=TIME_SERIES_LENGTH, includeTrajectory=True)
+    logistic_lce(mapParams=params, nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH, includeTrajectory=True)
     for params in logistic_control_params
 ]
 logistic_trajectories = [
-    data["trajectory"][:,0]
+    z_normalise(data["trajectory"][:, LOGISTIC_CONFIG.TRAJECTORY_DIM])
     for data in logistic_dataset
 ]
 logistic_lces = np.array([data["lce"][0] for data in logistic_dataset])
@@ -91,33 +152,49 @@ logistic_lces = np.array([data["lce"][0] for data in logistic_dataset])
 # ### Hénon
 
 # %%
+class HENON_CONFIG:
+    A_MIN = 0.8
+    A_MAX = 1.4
+    B = 0.3
+    TRAJECTORY_DIM = 0
+
 henon_control_params = [
-    dict(a=a, b=0.3) for a in np.sort(randomState.uniform(0.8, 1.4, NUM_CONTROL_PARAM_SAMPLES))
+    dict(a=a, b=HENON_CONFIG.B)
+    for a in np.sort(
+        EXPERIMENT_CONFIG.RANDOM_STATE.uniform(HENON_CONFIG.A_MIN, HENON_CONFIG.A_MAX, EXPERIMENT_CONFIG.NUM_CONTROL_PARAM_SAMPLES)
+    )
 ]
 henon_dataset = [
-    henon_lce(mapParams=params, nIterates=TIME_SERIES_LENGTH, includeTrajectory=True)
+    henon_lce(mapParams=params, nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH, includeTrajectory=True)
     for params in henon_control_params
 ]
 henon_trajectories = [
-    data["trajectory"][:,0]
-    for data in henon_dataset
+    z_normalise(data["trajectory"][:, HENON_CONFIG.TRAJECTORY_DIM]) for data in henon_dataset
 ]
 henon_lces = np.array([data["lce"][0] for data in henon_dataset])
+
 
 # %% [markdown]
 # ### Ikeda
 
 # %%
+class IKEDA_CONFIG:
+    A_MIN = 0.5
+    A_MAX = 1.0
+    TRAJECTORY_DIM = 0
+
 ikeda_control_params = [
-    dict(a=a) for a in np.sort(randomState.uniform(0.5, 1.0, NUM_CONTROL_PARAM_SAMPLES))
+    dict(a=a)
+    for a in np.sort(
+        EXPERIMENT_CONFIG.RANDOM_STATE.uniform(IKEDA_CONFIG.A_MIN, IKEDA_CONFIG.A_MAX, EXPERIMENT_CONFIG.NUM_CONTROL_PARAM_SAMPLES)
+    )
 ]
 ikeda_dataset = [
-    ikeda_lce(mapParams=params, nIterates=TIME_SERIES_LENGTH, includeTrajectory=True)
+    ikeda_lce(mapParams=params, nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH, includeTrajectory=True)
     for params in ikeda_control_params
 ]
 ikeda_trajectories = [
-    data["trajectory"][:,0]
-    for data in ikeda_dataset
+    z_normalise(data["trajectory"][:, IKEDA_CONFIG.TRAJECTORY_DIM]) for data in ikeda_dataset
 ]
 ikeda_lces = np.array([data["lce"][0] for data in ikeda_dataset])
 
@@ -126,15 +203,27 @@ ikeda_lces = np.array([data["lce"][0] for data in ikeda_dataset])
 # ### Tinkerbell
 
 # %%
+class TINKERBELL_CONFIG:
+    A_MIN = 0.7
+    A_MAX = 0.9
+    TRAJECTORY_DIM = 0
+
 tinkerbell_control_params = [
-    dict(a=a) for a in np.sort(randomState.uniform(0.7, 0.9, NUM_CONTROL_PARAM_SAMPLES))
+    dict(a=a)
+    for a in np.sort(
+        EXPERIMENT_CONFIG.RANDOM_STATE.uniform(
+            TINKERBELL_CONFIG.A_MIN, TINKERBELL_CONFIG.A_MAX, EXPERIMENT_CONFIG.NUM_CONTROL_PARAM_SAMPLES
+        )
+    )
 ]
 tinkerbell_dataset = [
-    tinkerbell_lce(mapParams=params, nIterates=TIME_SERIES_LENGTH, includeTrajectory=True)
+    tinkerbell_lce(
+        mapParams=params, nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH, includeTrajectory=True
+    )
     for params in tinkerbell_control_params
 ]
 tinkerbell_trajectories = [
-    data["trajectory"][:,0]
+    z_normalise(data["trajectory"][:, TINKERBELL_CONFIG.TRAJECTORY_DIM])
     for data in tinkerbell_dataset
 ]
 tinkerbell_lces = np.array([data["lce"][0] for data in tinkerbell_dataset])
@@ -149,7 +238,7 @@ def build_representation(dataset, rep_class, rep_class_kwargs):
     return [rep_class(ts, **rep_class_kwargs) for ts in trajectories]
 
 # %%
-tshvg_kwargs = dict(
+HVG_CONFIG = dict(
     DEGREE_DISTRIBUTION_MAX_DEGREE=100,
     DEGREE_DISTRIBUTION_DIVERGENCE_P_VALUE=1.0,
     directed=None,
@@ -158,12 +247,12 @@ tshvg_kwargs = dict(
 )
 
 # %%
-tsmt_kwargs = dict(
-    INTERLEAVING_DIVERGENCE_MESH=0.5,
+MT_CONFIG = dict(
+    INTERLEAVING_DIVERGENCE_MESH=0.25,
 )
 
 # %%
-tsph_kwargs = dict(
+PH_CONFIG = dict(
     ENTROPY_SUMMARY_RESOLUTION=100,
     BETTI_CURVE_RESOLUTION=100,
     BETTI_CURVE_NORM_P_VALUE=1.0,
@@ -184,33 +273,33 @@ tsph_kwargs = dict(
 # ### Logistic
 
 # %%
-logistic_tshvgs = build_representation(logistic_dataset, TSHVG, tshvg_kwargs)
-logistic_tsmts = build_representation(logistic_dataset, TSMT, tsmt_kwargs)
-logistic_tsphs = build_representation(logistic_dataset, TSPH, tsph_kwargs)
+logistic_tshvgs = build_representation(logistic_dataset, TSHVG, HVG_CONFIG)
+logistic_tsmts = build_representation(logistic_dataset, TSMT, MT_CONFIG)
+logistic_tsphs = build_representation(logistic_dataset, TSPH, PH_CONFIG)
 
 # %% [markdown]
 # ### Hénon
 
 # %%
-henon_tshvgs = build_representation(henon_dataset, TSHVG, tshvg_kwargs)
-henon_tsmts = build_representation(henon_dataset, TSMT, tsmt_kwargs)
-henon_tsphs = build_representation(henon_dataset, TSPH, tsph_kwargs)
+henon_tshvgs = build_representation(henon_dataset, TSHVG, HVG_CONFIG)
+henon_tsmts = build_representation(henon_dataset, TSMT, MT_CONFIG)
+henon_tsphs = build_representation(henon_dataset, TSPH, PH_CONFIG)
 
 # %% [markdown]
 # ### Ikeda
 
 # %%
-ikeda_tshvgs = build_representation(ikeda_dataset, TSHVG, tshvg_kwargs)
-ikeda_tsmts = build_representation(ikeda_dataset, TSMT, tsmt_kwargs)
-ikeda_tsphs = build_representation(ikeda_dataset, TSPH, tsph_kwargs)
+ikeda_tshvgs = build_representation(ikeda_dataset, TSHVG, HVG_CONFIG)
+ikeda_tsmts = build_representation(ikeda_dataset, TSMT, MT_CONFIG)
+ikeda_tsphs = build_representation(ikeda_dataset, TSPH, PH_CONFIG)
 
 # %% [markdown]
 # ### Tinkerbell
 
 # %%
-tinkerbell_tshvgs = build_representation(tinkerbell_dataset, TSHVG, tshvg_kwargs)
-tinkerbell_tsmts = build_representation(tinkerbell_dataset, TSMT, tsmt_kwargs)
-tinkerbell_tsphs = build_representation(tinkerbell_dataset, TSPH, tsph_kwargs)
+tinkerbell_tshvgs = build_representation(tinkerbell_dataset, TSHVG, HVG_CONFIG)
+tinkerbell_tsmts = build_representation(tinkerbell_dataset, TSMT, MT_CONFIG)
+tinkerbell_tsphs = build_representation(tinkerbell_dataset, TSPH, PH_CONFIG)
 
 # %% [markdown]
 # ## Get Lyapunov exponents and topological divergences
@@ -246,18 +335,51 @@ def topological_divergences(ts_representations):
 
 # %%
 logistic_hvg_divergences = topological_divergences(logistic_tshvgs)
+save_result(
+    "logistic_hvg_divergences",
+    logistic_hvg_divergences,
+    {
+        "logistic_config": configdict(LOGISTIC_CONFIG),
+        "hvg_config": HVG_CONFIG,
+    },
+)
 
 
 # %%
 henon_hvg_divergences = topological_divergences(henon_tshvgs)
+save_result(
+    "henon_hvg_divergences",
+    henon_hvg_divergences,
+    {
+        "henon_config": configdict(HENON_CONFIG),
+        "hvg_config": HVG_CONFIG,
+    },
+)
 
 
 # %%
 ikeda_hvg_divergences = topological_divergences(ikeda_tshvgs)
+save_result(
+    "ikeda_hvg_divergences",
+    ikeda_hvg_divergences,
+    {
+        "ikeda_config": configdict(IKEDA_CONFIG),
+        "hvg_config": HVG_CONFIG,
+    },
+)
 
 
 # %%
 tinkerbell_hvg_divergences = topological_divergences(tinkerbell_tshvgs)
+save_result(
+    "tinkerbell_hvg_divergences",
+    tinkerbell_hvg_divergences,
+    {
+        "tinkerbell_config": configdict(TINKERBELL_CONFIG),
+        "hvg_config": HVG_CONFIG,
+    },
+)
+
 
 # %% [markdown]
 # ### Merge tree divergences
@@ -266,18 +388,188 @@ tinkerbell_hvg_divergences = topological_divergences(tinkerbell_tshvgs)
 
 # %%
 logistic_mt_divergences = topological_divergences(logistic_tsmts)
+save_result(
+    "logistic_mt_divergences",
+    logistic_mt_divergences,
+    {
+        "logistic_config": configdict(LOGISTIC_CONFIG),
+        "mt_config": MT_CONFIG,
+    },
+)
 
 
 # %%
 henon_mt_divergences = topological_divergences(henon_tsmts)
+save_result(
+    "henon_mt_divergences",
+    henon_mt_divergences,
+    {
+        "henon_config": configdict(HENON_CONFIG),
+        "mt_config": MT_CONFIG,
+    },
+)
 
 
 # %%
 ikeda_mt_divergences = topological_divergences(ikeda_tsmts)
+save_result(
+    "ikeda_mt_divergences",
+    ikeda_mt_divergences,
+    {
+        "ikeda_config": configdict(IKEDA_CONFIG),
+        "mt_config": MT_CONFIG,
+    },
+)
 
 
 # %%
 tinkerbell_mt_divergences = topological_divergences(tinkerbell_tsmts)
+save_result(
+    "tinkerbell_mt_divergences",
+    tinkerbell_mt_divergences,
+    {
+        "tinkerbell_config": configdict(TINKERBELL_CONFIG),
+        "mt_config": MT_CONFIG,
+    },
+)
+
+
+# %% [markdown]
+# ### Persistent homology divergences
+# 
+# Various divergences based on the superlevel and sublevel persistence diagrams.
+
+# %%
+logistic_ph_divergences = topological_divergences(logistic_tsphs)
+save_result(
+    "logistic_ph_divergences",
+    logistic_ph_divergences,
+    {
+        "logistic_config": configdict(LOGISTIC_CONFIG),
+        "ph_config": PH_CONFIG,
+    },
+)
+
+
+# %%
+henon_ph_divergences = topological_divergences(henon_tsphs)
+save_result(
+    "henon_ph_divergences",
+    henon_ph_divergences,
+    {
+        "henon_config": configdict(HENON_CONFIG),
+        "ph_config": PH_CONFIG,
+    },
+)
+
+# %%
+ikeda_ph_divergences = topological_divergences(ikeda_tsphs)
+save_result(
+    "ikeda_ph_divergences",
+    ikeda_ph_divergences,
+    {
+        "ikeda_config": configdict(IKEDA_CONFIG),
+        "ph_config": PH_CONFIG,
+    },
+)
+
+# %%
+tinkerbell_ph_divergences = topological_divergences(tinkerbell_tsphs)
+save_result(
+    "tinkerbell_ph_divergences",
+    tinkerbell_ph_divergences,
+    {
+        "tinkerbell_config": configdict(TINKERBELL_CONFIG),
+        "ph_config": PH_CONFIG,
+    },
+)
+
+# %% [markdown]
+# ### Correlations between divergences and Lyapunov exponents
+
+# %%
+def lyapunov_correlations(system_name, divergence_type, divergence_name, lces, divergences):
+    # find out how well a given estimator correlates with the lyapunov exponent
+    positive_mask = np.array(lces) > 0
+    return dict(
+        system_name = system_name,
+        divergence_type = divergence_type,
+        divergence_name = divergence_name,
+        pearsonr_full = stats.pearsonr(lces, divergences)[0],
+        spearmanr_full = stats.spearmanr(lces, divergences)[0],
+        kendalltau_full = stats.kendalltau(lces, divergences)[0],
+        pearsonr_pos = stats.pearsonr(lces[positive_mask], divergences[positive_mask])[0],
+        spearmanr_pos = stats.spearmanr(lces[positive_mask], divergences[positive_mask])[0],
+        kendalltau_pos = stats.kendalltau(lces[positive_mask], divergences[positive_mask])[0],
+    )
+
+
+# %%
+def build_correlation_results():
+    """Build a dictionary of all system representation divergence correlations."""
+
+    system_lces = {
+        "logistic": logistic_lces,
+        "henon": henon_lces,
+        "ikeda": ikeda_lces,
+        "tinkerbell": tinkerbell_lces,
+    }
+
+    divergence_results = {
+        "logistic": {
+            "hvg": logistic_hvg_divergences,
+            "mt": logistic_mt_divergences,
+            "ph": logistic_ph_divergences,
+        },
+        "henon": {
+            "hvg": henon_hvg_divergences,
+            "mt": henon_mt_divergences,
+            "ph": henon_ph_divergences,
+        },
+        "ikeda": {
+            "hvg": ikeda_hvg_divergences,
+            "mt": ikeda_mt_divergences,
+            "ph": ikeda_ph_divergences,
+        },
+        "tinkerbell": {
+            "hvg": tinkerbell_hvg_divergences,
+            "mt": tinkerbell_mt_divergences,
+            "ph": tinkerbell_ph_divergences,
+        },
+    }
+
+    correlation_results = dict()
+
+    for sys_name in ["logistic", "henon", "ikeda", "tinkerbell"]:
+        lces = system_lces[sys_name]
+        for div_type in ["hvg", "mt", "ph"]:
+            for div_name, divs in divergence_results[sys_name][div_type].items():
+                correlation_results[
+                    sys_name, div_type, div_name
+                ] = lyapunov_correlations(sys_name, div_type, div_name, lces, divs)
+
+    return correlation_results
+
+
+# %% [markdown]
+# ### Save correlations computed so far
+
+# %%
+correlation_results = build_correlation_results()
+
+configs = dict()
+configs |= configdict(EXPERIMENT_CONFIG)
+configs |= configdict(LOGISTIC_CONFIG)
+configs |= configdict(HENON_CONFIG)
+configs |= configdict(TINKERBELL_CONFIG)
+configs |= dict(MT_CONFIG=MT_CONFIG)
+configs |= dict(HVG_CONFIG=HVG_CONFIG)
+configs |= dict(PH_CONFIG=PH_CONFIG)
+
+save_result("correlation_results", correlation_results, extra_metadata=configs)
+
+# %% [markdown]
+# ### Plots and visualisations
 
 # %%
 # def plot_lce_and_topo_divergence(lces_to_plot, mt_div_to_plot):
@@ -315,74 +607,6 @@ tinkerbell_mt_divergences = topological_divergences(tinkerbell_tsmts)
 # plot_lce_and_topo_divergence(henon_lces, henon_mt_divergences["leaf_to_leaf_path_length"][:,0])
 # plot_lce_and_topo_divergence(ikeda_lces, ikeda_mt_divergences["leaf_to_leaf_path_length"][:,0])
 # plot_lce_and_topo_divergence(tinkerbell_lces, tinkerbell_mt_divergences["leaf_to_leaf_path_length"][:,0])
-
-# %% [markdown]
-# ### Persistent homology divergences
-# 
-# Various divergences based on the superlevel and sublevel persistence diagrams.
-
-# %%
-logistic_ph_divergences = topological_divergences(logistic_tsphs)
-
-
-# %%
-henon_ph_divergences = topological_divergences(henon_tsphs)
-
-
-# %%
-ikeda_ph_divergences = topological_divergences(ikeda_tsphs)
-
-
-# %%
-tinkerbell_ph_divergences = topological_divergences(tinkerbell_tsphs)
-
-# %% [markdown]
-# ## Save numerical results so far
-
-# %%
-def save_data():
-
-    config = dict(
-        SEED=SEED,
-        TIME_SERIES_LENGTH=TIME_SERIES_LENGTH,
-        NUM_CONTROL_PARAM_SAMPLES=NUM_CONTROL_PARAM_SAMPLES
-    )
-
-    hvg_divergences = dict(
-        tshvg_kwargs = tshvg_kwargs,
-        logistic=logistic_hvg_divergences,
-        henon=henon_hvg_divergences,
-        ikeda=ikeda_hvg_divergences,
-        tinkerbell=tinkerbell_hvg_divergences
-    )
-
-    mt_divergences = dict(
-        tsmt_kwargs = tsmt_kwargs,
-        logistic=logistic_mt_divergences,
-        henon=henon_mt_divergences,
-        ikeda=ikeda_mt_divergences,
-        tinkerbell=tinkerbell_mt_divergences
-    )
-
-    ph_divergences = dict(
-        tsph_kwargs = tsph_kwargs,
-        logistic=logistic_ph_divergences,
-        henon=henon_ph_divergences,
-        ikeda=ikeda_ph_divergences,
-        tinkerbell=tinkerbell_ph_divergences
-    )
-
-    data_to_save = dict(
-        config=config,
-        hvg_divergences=hvg_divergences,
-        mt_divergences=mt_divergences,
-        ph_divergences=ph_divergences
-    )
-
-    filename = f"outputs/data/topo_divs_{SEED}_{TIME_SERIES_LENGTH}_{NUM_CONTROL_PARAM_SAMPLES}.pkl"
-    with open(filename, "wb") as file:
-        pickle.dump(data_to_save, file)
-
 
 # %%
 save_data()
