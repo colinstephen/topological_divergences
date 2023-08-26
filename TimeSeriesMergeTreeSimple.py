@@ -380,8 +380,13 @@ class TimeSeriesMergeTree:
             interleaving=self.interleaving_divergence,
             length_normalised_interleaving=self.length_normalised_interleaving_divergence,
             edge_normalised_interleaving=self.edge_normalised_interleaving_divergence,
-            offset_path_length_distribution=self.offset_path_length_distribution_divergences,
         )
+        for offset in range(1, 51):
+            divs = divs | {
+                f"offset_path_length_{offset}": self.offset_path_length_distribution_divergences(
+                    offset
+                )
+            }
         if self.discrete:
             # only defined for discrete time series merge trees
             divs = divs | dict(
@@ -425,24 +430,19 @@ class TimeSeriesMergeTree:
         n2 = self.superlevel_merge_tree.number_of_edges()
         return self.interleaving_divergence / (n1 + n2)
 
-    @property
-    def offset_path_length_distribution_divergences(self):
+    def offset_path_length_distribution_divergences(self, offset):
         # wasserstein distance between pairwise leaf-to-leaf path length distributions
-        distances = []
-        for offset in range(1, 50):
-            T1 = self.merge_tree
-            T2 = make_increasing(self.superlevel_merge_tree)
-            l1 = leaf_to_leaf_path_lengths(T1, offset=offset)
-            l2 = leaf_to_leaf_path_lengths(T2, offset=offset)
-            d1 = distribution_from_samples(
-                l1, DISTRIBUTION_VECTOR_LENGTH=self.DISTRIBUTION_VECTOR_LENGTH
-            )
-            d2 = distribution_from_samples(
-                l2, DISTRIBUTION_VECTOR_LENGTH=self.DISTRIBUTION_VECTOR_LENGTH
-            )
-            distances.append(wasserstein_distance(d1, d2))
-
-        return distances
+        T1 = self.merge_tree
+        T2 = make_increasing(self.superlevel_merge_tree)
+        l1 = leaf_to_leaf_path_lengths(T1, offset=offset)
+        l2 = leaf_to_leaf_path_lengths(T2, offset=offset)
+        d1 = distribution_from_samples(
+            l1, DISTRIBUTION_VECTOR_LENGTH=self.DISTRIBUTION_VECTOR_LENGTH
+        )
+        d2 = distribution_from_samples(
+            l2, DISTRIBUTION_VECTOR_LENGTH=self.DISTRIBUTION_VECTOR_LENGTH
+        )
+        return wasserstein_distance(d1, d2)
 
     @property
     @lru_cache()
