@@ -134,9 +134,10 @@ def superlevel_merge_tree_discrete(array):
         data["height"] = -data["height"]
     return G
 
+
 def as_directed_tree(T: nx.Graph) -> nx.DiGraph:
     """Return copy of T that is a DiGraph with edges from leaves to root.
-    
+
     Note: assumes height attribute increases towards root.
     """
     tree = nx.DiGraph()
@@ -150,9 +151,10 @@ def as_directed_tree(T: nx.Graph) -> nx.DiGraph:
             tree.add_edge(v, u)
     return tree
 
+
 def lca(T: nx.DiGraph, u, v, root):
     """Least common ancestor of u,v in T.
-    
+
     Tree is assumed directed from leaves to `root`.
     """
     assert nx.is_tree(T)
@@ -336,6 +338,7 @@ def cophenetic_matrix(T: nx.Graph) -> np.array:
 
 class TimeSeriesMergeTree:
     """Access merge tree based topological divergences."""
+
     def __init__(
         self,
         time_series,
@@ -363,7 +366,9 @@ class TimeSeriesMergeTree:
     def superlevel_merge_tree(self):
         if self._superlevel_merge_tree is None:
             if self.discrete:
-                self._superlevel_merge_tree = superlevel_merge_tree_discrete(self.time_series)
+                self._superlevel_merge_tree = superlevel_merge_tree_discrete(
+                    self.time_series
+                )
             else:
                 self._superlevel_merge_tree = superlevel_merge_tree(self.time_series)
         return self._superlevel_merge_tree
@@ -375,13 +380,15 @@ class TimeSeriesMergeTree:
             interleaving=self.interleaving_divergence,
             length_normalised_interleaving=self.length_normalised_interleaving_divergence,
             edge_normalised_interleaving=self.edge_normalised_interleaving_divergence,
-            offset_path_lengths=self.offset_path_length_distribution_divergences,
+            offset_path_length_distribution=self.offset_path_length_distribution_divergences,
         )
         if self.discrete:
             # only defined for discrete time series merge trees
             divs = divs | dict(
                 distance_matrix=self.distance_matrix_divergence,
+                edge_normalised_distance_matrix=self.edge_normalised_distance_matrix_divergence,
                 cophenetic_matrix=self.cophenetic_matrix_divergence,
+                length_normalised_cophenetic_matrix=self.length_normalised_cophenetic_matrix_divergence,
             )
         return divs
 
@@ -422,7 +429,7 @@ class TimeSeriesMergeTree:
     def offset_path_length_distribution_divergences(self):
         # wasserstein distance between pairwise leaf-to-leaf path length distributions
         distances = []
-        for offset in range(1,2):
+        for offset in range(1, 50):
             T1 = self.merge_tree
             T2 = make_increasing(self.superlevel_merge_tree)
             l1 = leaf_to_leaf_path_lengths(T1, offset=offset)
@@ -438,18 +445,34 @@ class TimeSeriesMergeTree:
         return distances
 
     @property
+    @lru_cache()
     def distance_matrix_divergence(self):
-        # frobenius norm of difference between leaf-to-leaf path lengths 
+        # frobenius norm of difference between leaf-to-leaf path lengths
         D1 = distance_matrix(self.merge_tree)
         D2 = distance_matrix(make_increasing(self.superlevel_merge_tree))
         return np.linalg.norm(D1 - D2)
 
     @property
+    def edge_normalised_distance_matrix_divergence(self):
+        # normalise frobenius norm by total number of edges
+        n1 = self.merge_tree.number_of_edges()
+        n2 = self.superlevel_merge_tree.number_of_edges()
+        return self.distance_matrix_divergence / (n1 + n2)
+
+    @property
+    @lru_cache
     def cophenetic_matrix_divergence(self):
         # frobenius norm of difference between leaf-to-leaf cophenetic distances
         D1 = cophenetic_matrix(self.merge_tree)
         D2 = cophenetic_matrix(make_increasing(self.superlevel_merge_tree))
         return np.linalg.norm(D1 - D2)
+
+    @property
+    def length_normalised_cophenetic_matrix_divergence(self):
+        # normalise interleaving by total height of tree
+        l1 = sum_of_edge_lengths(self.merge_tree)
+        l2 = sum_of_edge_lengths(self.superlevel_merge_tree)
+        return self.cophenetic_matrix_divergence / (l1 + l2)
 
 
 if __name__ == "__main__":
@@ -457,7 +480,7 @@ if __name__ == "__main__":
     import numpy as np
     from matplotlib import pyplot as plt
 
-    array = np.random.choice(100, 20, True)
+    array = np.random.uniform(size=100)
 
     plt.plot(array)
     plt.show()
@@ -497,7 +520,7 @@ if __name__ == "__main__":
     )
     plt.show()
 
-    tsmt = TimeSeriesMergeTree(time_series=array)
+    tsmt = TimeSeriesMergeTree(time_series=array, INTERLEAVING_DIVERGENCE_MESH=0.1)
     divergences = tsmt.divergences
     print(divergences)
 
@@ -536,6 +559,8 @@ if __name__ == "__main__":
     )
     plt.show()
 
-    tsmt = TimeSeriesMergeTree(time_series=array, discrete=True)
+    tsmt = TimeSeriesMergeTree(
+        time_series=array, discrete=True, INTERLEAVING_DIVERGENCE_MESH=0.1
+    )
     divergences = tsmt.divergences
     print(divergences)
