@@ -4,6 +4,7 @@ import networkx as nx
 from collections import Counter
 from functools import lru_cache
 from scipy.stats import wasserstein_distance
+from scipy.stats import entropy
 from numpy.random import MT19937
 from numpy.random import RandomState
 from numpy.random import SeedSequence
@@ -135,9 +136,10 @@ def superlevel_merge_tree_discrete(array):
     return G
 
 
-def as_directed_tree(T: nx.Graph) -> nx.DiGraph:
-    """Return copy of T that is a DiGraph with edges from leaves to root.
-
+def as_directed_tree(T: nx.Graph, root_to_leaf=False) -> nx.DiGraph:
+    """Return copy of T that is a DiGraph
+    
+    Default direction of edges is from leaves to root.
     Note: assumes height attribute increases towards root.
     """
     tree = nx.DiGraph()
@@ -145,10 +147,16 @@ def as_directed_tree(T: nx.Graph) -> nx.DiGraph:
         tree.add_node(n, **data)
     for u, v in T.edges():
         hu, hv = T.nodes[u]["height"], T.nodes[v]["height"]
-        if hu < hv:
-            tree.add_edge(u, v)
+        if root_to_leaf:
+            if hu < hv:
+                tree.add_edge(v, u)
+            else:
+                tree.add_edge(u, v)
         else:
-            tree.add_edge(v, u)
+            if hu < hv:
+                tree.add_edge(u, v)
+            else:
+                tree.add_edge(v, u)
     return tree
 
 
@@ -303,35 +311,25 @@ def sum_of_edge_lengths(T: nx.Graph):
         length += abs(h1 - h2)
     return length
 
-
-def distance_matrix(T: nx.Graph) -> np.array:
-    """Path lengths between all pairs of leaves."""
-    leaves = get_leaves(T)
-    n = len(leaves)
-    D = np.zeros((n, n))
-    for offset in range(1, n):
-        D[range(n - offset), range(offset, n)] = leaf_to_leaf_path_lengths(
-            T, offset=offset
-        )
-    D = D + D.T
-    return D
-
-
+@lru_cache
 def cophenetic_matrix(T: nx.Graph) -> np.array:
     """Cophenetic distance between all pairs of leaves."""
     leaves = get_leaves(T)
     n = len(leaves)
 
     # use a directed tree to speed up path length computations
-    T_directed = as_directed_tree(T)
+    T_directed = as_directed_tree(T, root_to_leaf=True)
     root = get_root(T)
 
     D = np.zeros((n, n))
+    idx_pairs = []
     for i in range(n - 1):
         for j in range(i + 1, n):
-            path = leaf_to_leaf_path(T_directed, leaves[i], leaves[j], root)
-            heights = [T.nodes[n]["height"] for n in path]
-            D[i, j] = max(heights)
+            idx_pairs.append((i, j))
+    leaf_pairs = [(leaves[i], leaves[j]) for i,j in idx_pairs]
+    lcas = nx.tree_all_pairs_lowest_common_ancestor(T_directed, root=root, pairs=leaf_pairs)
+    for ((i, j), ((u, v), lca)) in zip(idx_pairs, lcas):
+        D[i,j] = T.nodes[lca]["height"]
     D = D + D.T
     return D
 
@@ -390,10 +388,12 @@ class TimeSeriesMergeTree:
         if self.discrete:
             # only defined for discrete time series merge trees
             divs = divs | dict(
-                distance_matrix=self.distance_matrix_divergence,
-                edge_normalised_distance_matrix=self.edge_normalised_distance_matrix_divergence,
                 cophenetic_matrix=self.cophenetic_matrix_divergence,
                 length_normalised_cophenetic_matrix=self.length_normalised_cophenetic_matrix_divergence,
+                cophenetic_cross_1=self.cophenetic_matrix_cross_entropy_1,
+                cophenetic_cross_2=self.cophenetic_matrix_cross_entropy_2,
+                cophenetic_relative_1=self.cophenetic_matrix_relative_entropy_1,
+                cophenetic_relative_2=self.cophenetic_matrix_relative_entropy_2,
             )
         return divs
 
@@ -445,22 +445,6 @@ class TimeSeriesMergeTree:
         return wasserstein_distance(d1, d2)
 
     @property
-    @lru_cache()
-    def distance_matrix_divergence(self):
-        # frobenius norm of difference between leaf-to-leaf path lengths
-        D1 = distance_matrix(self.merge_tree)
-        D2 = distance_matrix(make_increasing(self.superlevel_merge_tree))
-        return np.linalg.norm(D1 - D2)
-
-    @property
-    def edge_normalised_distance_matrix_divergence(self):
-        # normalise frobenius norm by total number of edges
-        n1 = self.merge_tree.number_of_edges()
-        n2 = self.superlevel_merge_tree.number_of_edges()
-        return self.distance_matrix_divergence / (n1 + n2)
-
-    @property
-    @lru_cache
     def cophenetic_matrix_divergence(self):
         # frobenius norm of difference between leaf-to-leaf cophenetic distances
         D1 = cophenetic_matrix(self.merge_tree)
@@ -473,6 +457,31 @@ class TimeSeriesMergeTree:
         l1 = sum_of_edge_lengths(self.merge_tree)
         l2 = sum_of_edge_lengths(self.superlevel_merge_tree)
         return self.cophenetic_matrix_divergence / (l1 + l2)
+    
+    @property
+    def cophenetic_matrix_relative_entropy_1(self):
+        D1 = cophenetic_matrix(self.merge_tree).flatten()
+        D2 = cophenetic_matrix(make_increasing(self.superlevel_merge_tree)).flatten()
+        return entropy(D1, D2)
+
+    @property
+    def cophenetic_matrix_relative_entropy_2(self):
+        D1 = cophenetic_matrix(self.merge_tree).flatten()
+        D2 = cophenetic_matrix(make_increasing(self.superlevel_merge_tree)).flatten()
+        return entropy(D2, D1)
+
+    @property
+    def cophenetic_matrix_cross_entropy_1(self):
+        D1 = cophenetic_matrix(self.merge_tree).flatten()
+        D2 = cophenetic_matrix(make_increasing(self.superlevel_merge_tree)).flatten()
+        return entropy(D1) + entropy(D1, D2)
+
+    @property
+    def cophenetic_matrix_cross_entropy_2(self):
+        D1 = cophenetic_matrix(self.merge_tree).flatten()
+        D2 = cophenetic_matrix(make_increasing(self.superlevel_merge_tree)).flatten()
+        return entropy(D2) + entropy(D1, D2)
+
 
 
 if __name__ == "__main__":
