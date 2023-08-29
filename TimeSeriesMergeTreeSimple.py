@@ -4,7 +4,7 @@ import networkx as nx
 from collections import Counter
 from functools import lru_cache
 from scipy.stats import wasserstein_distance
-from scipy.stats import entropy
+# from scipy.stats import entropy
 from numpy.random import MT19937
 from numpy.random import RandomState
 from numpy.random import SeedSequence
@@ -311,7 +311,6 @@ def sum_of_edge_lengths(T: nx.Graph):
         length += abs(h1 - h2)
     return length
 
-@lru_cache
 def cophenetic_matrix(T: nx.Graph) -> np.array:
     """Cophenetic distance between all pairs of leaves."""
     leaves = get_leaves(T)
@@ -334,6 +333,30 @@ def cophenetic_matrix(T: nx.Graph) -> np.array:
     return D
 
 
+def relative_entropy(ps, qs):
+    pnz = (ps != 0) & np.isfinite(ps) & ~np.isnan(ps)
+    qnz = (qs != 0) & np.isfinite(qs) & ~np.isnan(qs)
+    pqnz = pnz & qnz
+    ps = ps[pqnz]
+    qs = qs[pqnz]
+    minp = np.min(ps)
+    minq = np.min(qs)
+    ps = ps - min(minp, minq) + 1e-9
+    qs = qs - min(minp, minq) + 1e-9
+    ps = ps / np.sum(ps)
+    qs = qs / np.sum(qs)
+    return np.sum(ps * np.log(ps/qs))
+
+
+def entropy(ps):
+    pnz = (ps != 0) & np.isfinite(ps) & ~np.isnan(ps)
+    ps = ps[pnz]
+    minp = np.min(ps)
+    ps = ps - minp + 1e-9
+    ps = ps / np.sum(ps)
+    return np.sum(ps * np.log(ps))
+
+
 class TimeSeriesMergeTree:
     """Access merge tree based topological divergences."""
 
@@ -342,11 +365,13 @@ class TimeSeriesMergeTree:
         time_series,
         discrete=False,
         INTERLEAVING_DIVERGENCE_MESH=0.5,
+        INTERLEAVING_PRUNE_THRESHOLD=None,
         DISTRIBUTION_VECTOR_LENGTH=100,
     ) -> None:
         self.time_series = time_series
         self.discrete = discrete
         self.INTERLEAVING_DIVERGENCE_MESH = INTERLEAVING_DIVERGENCE_MESH
+        self.INTERLEAVING_PRUNE_THRESHOLD = INTERLEAVING_PRUNE_THRESHOLD
         self.DISTRIBUTION_VECTOR_LENGTH = DISTRIBUTION_VECTOR_LENGTH
         self._merge_tree = None
         self._superlevel_merge_tree = None
@@ -374,27 +399,21 @@ class TimeSeriesMergeTree:
     @property
     def divergences(self):
         # dictionary of divergences associated to the merge tree representation
-        divs = dict(
+        divs = dict()
+
+        divs = divs | dict(
             interleaving=self.interleaving_divergence,
             length_normalised_interleaving=self.length_normalised_interleaving_divergence,
             edge_normalised_interleaving=self.edge_normalised_interleaving_divergence,
         )
-        for offset in range(1, 51):
-            divs = divs | {
-                f"offset_path_length_{offset}": self.offset_path_length_distribution_divergences(
-                    offset
-                )
-            }
+
         if self.discrete:
-            # only defined for discrete time series merge trees
+            # matrix-based measures only defined for discrete case (guarantees same number of leaves)
             divs = divs | dict(
                 cophenetic_matrix=self.cophenetic_matrix_divergence,
                 length_normalised_cophenetic_matrix=self.length_normalised_cophenetic_matrix_divergence,
-                cophenetic_cross_1=self.cophenetic_matrix_cross_entropy_1,
-                cophenetic_cross_2=self.cophenetic_matrix_cross_entropy_2,
-                cophenetic_relative_1=self.cophenetic_matrix_relative_entropy_1,
-                cophenetic_relative_2=self.cophenetic_matrix_relative_entropy_2,
             )
+
         return divs
 
     @property
@@ -412,9 +431,24 @@ class TimeSeriesMergeTree:
             if not np.isfinite(data["height"]):
                 neighbour = list(nx.neighbors(T2, node))[0]
                 data["height"] = T2.nodes[neighbour]["height"] - 1.5 * mesh
-        return merge_tree_interleaving_distance(
-            dmt_merge_tree(T1), dmt_merge_tree(T2), mesh, verbose=False
-        )
+        MT1 = dmt_merge_tree(T1)
+        MT2 = dmt_merge_tree(T2)
+        if self.INTERLEAVING_PRUNE_THRESHOLD is not None:
+            try:
+                MT1_thresh = MT1.copy()
+                MT2_thresh = MT2.copy()
+                MT1_thresh.threshold(self.INTERLEAVING_PRUNE_THRESHOLD)
+                MT2_thresh.threshold(self.INTERLEAVING_PRUNE_THRESHOLD)
+                MT1 = MT1_thresh
+                MT2 = MT2_thresh
+            except Exception as e:
+                print("WARNING: threshold operation raised an exception:", e)
+        try:
+            distance = merge_tree_interleaving_distance(MT1, MT2, mesh, verbose=False)
+        except Exception as e:
+            print("WARNING: interleaving distance raised an exception:", e)
+            distance = -1
+        return distance
 
     @property
     def length_normalised_interleaving_divergence(self):
@@ -457,31 +491,6 @@ class TimeSeriesMergeTree:
         l1 = sum_of_edge_lengths(self.merge_tree)
         l2 = sum_of_edge_lengths(self.superlevel_merge_tree)
         return self.cophenetic_matrix_divergence / (l1 + l2)
-    
-    @property
-    def cophenetic_matrix_relative_entropy_1(self):
-        D1 = cophenetic_matrix(self.merge_tree).flatten()
-        D2 = cophenetic_matrix(make_increasing(self.superlevel_merge_tree)).flatten()
-        return entropy(D1, D2)
-
-    @property
-    def cophenetic_matrix_relative_entropy_2(self):
-        D1 = cophenetic_matrix(self.merge_tree).flatten()
-        D2 = cophenetic_matrix(make_increasing(self.superlevel_merge_tree)).flatten()
-        return entropy(D2, D1)
-
-    @property
-    def cophenetic_matrix_cross_entropy_1(self):
-        D1 = cophenetic_matrix(self.merge_tree).flatten()
-        D2 = cophenetic_matrix(make_increasing(self.superlevel_merge_tree)).flatten()
-        return entropy(D1) + entropy(D1, D2)
-
-    @property
-    def cophenetic_matrix_cross_entropy_2(self):
-        D1 = cophenetic_matrix(self.merge_tree).flatten()
-        D2 = cophenetic_matrix(make_increasing(self.superlevel_merge_tree)).flatten()
-        return entropy(D2) + entropy(D1, D2)
-
 
 
 if __name__ == "__main__":
