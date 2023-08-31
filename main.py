@@ -81,7 +81,7 @@ SEED = int(sys.argv[1]) if n_args > 1 else 42
 LENGTH = int(sys.argv[2]) if n_args > 2 else 200
 SAMPLES = int(sys.argv[3]) if n_args > 3 else 50
 
-print(f"SEED:{SEED}, LENGTH:{LENGTH}, SAMPLES:{SAMPLES}")
+print(f"Experiment config -- SEED:{SEED}, LENGTH:{LENGTH}, SAMPLES:{SAMPLES}")
 
 # %%
 
@@ -287,7 +287,7 @@ HVG_CONFIG = dict(
 )
 
 # %%
-MT_CONFIG = dict()
+MT_CONFIG = dict(MESHES=[0.5, 0.4, 0.3, 0.2, 0.1], THRESHES=[None])
 
 DMT_CONFIG = MT_CONFIG | dict(discrete=True)
 
@@ -472,10 +472,10 @@ def compute_and_save_divs_and_corrs(sys_name: str, div_type: str):
 # Wasserstein and $L_p$ divergences of the time series HVG degree distributions.
 
 # %%
-# compute_and_save_divs_and_corrs("logistic", "hvg")
-# compute_and_save_divs_and_corrs("ikeda", "hvg")
-# compute_and_save_divs_and_corrs("tinkerbell", "hvg")
-# compute_and_save_divs_and_corrs("henon", "hvg")
+compute_and_save_divs_and_corrs("logistic", "hvg")
+compute_and_save_divs_and_corrs("ikeda", "hvg")
+compute_and_save_divs_and_corrs("tinkerbell", "hvg")
+compute_and_save_divs_and_corrs("henon", "hvg")
 
 # %% [markdown]
 # ### Persistent homology divergences
@@ -483,10 +483,10 @@ def compute_and_save_divs_and_corrs(sys_name: str, div_type: str):
 # Various divergences based on the superlevel and sublevel persistence diagrams.
 
 # %%
-# compute_and_save_divs_and_corrs("logistic", "ph")
-# compute_and_save_divs_and_corrs("ikeda", "ph")
-# compute_and_save_divs_and_corrs("tinkerbell", "ph")
-# compute_and_save_divs_and_corrs("henon", "ph")
+compute_and_save_divs_and_corrs("logistic", "ph")
+compute_and_save_divs_and_corrs("ikeda", "ph")
+compute_and_save_divs_and_corrs("tinkerbell", "ph")
+compute_and_save_divs_and_corrs("henon", "ph")
 
 # %% [markdown]
 # ### Merge tree divergences
@@ -496,8 +496,8 @@ def compute_and_save_divs_and_corrs(sys_name: str, div_type: str):
 # %%
 compute_and_save_divs_and_corrs("logistic", "mt")
 compute_and_save_divs_and_corrs("ikeda", "mt")
-# compute_and_save_divs_and_corrs("tinkerbell", "mt")
-# compute_and_save_divs_and_corrs("henon", "mt")
+compute_and_save_divs_and_corrs("tinkerbell", "mt")
+compute_and_save_divs_and_corrs("henon", "mt")
 
 # %% [markdown]
 # #### DISCRETE merge tree versions
@@ -505,8 +505,8 @@ compute_and_save_divs_and_corrs("ikeda", "mt")
 # %%
 compute_and_save_divs_and_corrs("logistic", "dmt")
 compute_and_save_divs_and_corrs("ikeda", "dmt")
-# compute_and_save_divs_and_corrs("tinkerbell", "dmt")
-# compute_and_save_divs_and_corrs("henon", "dmt")
+compute_and_save_divs_and_corrs("tinkerbell", "dmt")
+compute_and_save_divs_and_corrs("henon", "dmt")
 # test = []
 # for i, tsdmt in enumerate(ikeda_tsdmts):
 #     div = tsdmt.cophenetic_matrix_entropy_divergence
