@@ -144,7 +144,11 @@ class TimeSeriesHVG:
         ks, ps = hvg.degree_distribution
         probabilities = np.zeros(self.DEGREE_DISTRIBUTION_MAX_DEGREE)
         for k, p in zip(ks, ps):
+            if k > len(probabilities):
+                break
             probabilities[k - 1] = p
+
+        probabilities = probabilities / np.sum(probabilities)
 
         return probabilities
 
@@ -155,19 +159,42 @@ class TimeSeriesHVG:
     @property
     def divergences(self):
         return dict(
-            degree_wasserstein=self.degree_wasserstein_divergence,
-            degree_lp=self.degree_lp_divergence,
+            degree_dist_wasserstein=self.degree_dist_wasserstein_divergence,
+            degree_dist_wasserstein_direct=self.degree_dist_wasserstein_direct_divergence,
+            degree_dist_lp=self.degree_dist_lp_divergence,
+            degree_seq_lp=self.degree_seq_lp_divergence,
+            degree_seq_reverse_lp=self.degree_seq_reverse_lp_divergence,
         )
 
     @property
-    def degree_wasserstein_divergence(self):
+    def degree_dist_wasserstein_direct_divergence(self):
+        top_degrees, top_probs = self.top_hvg.degree_distribution
+        bot_degrees, bot_probs = self.bottom_hvg.degree_distribution
+        return wasserstein_distance(top_degrees, bot_degrees, top_probs, bot_probs)
+
+    @property
+    def degree_dist_wasserstein_divergence(self):
         return wasserstein_distance(
             self.degree_distribution_top, self.degree_distribution_bottom
         )
 
     @property
-    def degree_lp_divergence(self):
+    def degree_dist_lp_divergence(self):
         return norm(
             self.degree_distribution_top - self.degree_distribution_bottom,
+            ord=self.DEGREE_DISTRIBUTION_DIVERGENCE_P_VALUE,
+        )
+
+    @property
+    def degree_seq_lp_divergence(self):
+        return norm(
+            self.top_hvg.degrees - self.bottom_hvg.degrees,
+            ord=self.DEGREE_DISTRIBUTION_DIVERGENCE_P_VALUE,
+        )
+
+    @property
+    def degree_seq_reverse_lp_divergence(self):
+        return norm(
+            self.top_hvg.degrees - self.bottom_hvg.degrees[::-1],
             ord=self.DEGREE_DISTRIBUTION_DIVERGENCE_P_VALUE,
         )

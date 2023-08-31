@@ -73,8 +73,6 @@ from TimeSeriesPersistence import TimeSeriesPersistence as TSPH
 SEED = 42
 LENGTH = 200
 SAMPLES = 50
-MESH = 0.5
-PRUNE = None
 
 # %%
 # WARNING: ONLY RUN THIS VIA EXPORTED PYTHON SCRIPT
@@ -82,10 +80,8 @@ n_args = len(sys.argv)
 SEED = int(sys.argv[1]) if n_args > 1 else 42
 LENGTH = int(sys.argv[2]) if n_args > 2 else 200
 SAMPLES = int(sys.argv[3]) if n_args > 3 else 50
-MESH = float(sys.argv[4]) if n_args > 4 else 0.5
-PRUNE = float(sys.argv[5]) if n_args > 5 else None
 
-print(f"SEED:{SEED}, LENGTH:{LENGTH}, SAMPLES:{SAMPLES}, MESH:{MESH}, PRUNE:{PRUNE}")
+print(f"SEED:{SEED}, LENGTH:{LENGTH}, SAMPLES:{SAMPLES}")
 
 # %%
 
@@ -94,8 +90,6 @@ class EXPERIMENT_CONFIG:
     RANDOM_STATE = RandomState(MT19937(SeedSequence(SEED)))
     TIME_SERIES_LENGTH = LENGTH
     NUM_CONTROL_PARAM_SAMPLES = SAMPLES
-    INTERLEAVING_MESH = MESH
-    INTERLEAVING_THRESHOLD = PRUNE
 
 # %% [markdown]
 # ### Allow converting configurations to dictionaries for saving
@@ -118,8 +112,6 @@ def save_result(filename, data, extra_metadata=None, RESULTS_DIR="outputs/data")
         f"SEED_{EXPERIMENT_CONFIG.SEED}",
         f"LENGTH_{EXPERIMENT_CONFIG.TIME_SERIES_LENGTH}",
         f"SAMPLES_{EXPERIMENT_CONFIG.NUM_CONTROL_PARAM_SAMPLES}",
-        f"MESH_{EXPERIMENT_CONFIG.INTERLEAVING_MESH}",
-        f"PRUNE_{EXPERIMENT_CONFIG.INTERLEAVING_THRESHOLD}",
         filename,
         f"{datetime.utcnow()}",
     ]
@@ -295,10 +287,7 @@ HVG_CONFIG = dict(
 )
 
 # %%
-MT_CONFIG = dict(
-    INTERLEAVING_DIVERGENCE_MESH=EXPERIMENT_CONFIG.INTERLEAVING_MESH,
-    INTERLEAVING_PRUNE_THRESHOLD=EXPERIMENT_CONFIG.INTERLEAVING_THRESHOLD
-)
+MT_CONFIG = dict()
 
 DMT_CONFIG = MT_CONFIG | dict(discrete=True)
 
@@ -505,8 +494,8 @@ def compute_and_save_divs_and_corrs(sys_name: str, div_type: str):
 # Interleaving divergence and leaf-to-offset-leaf path length distribution divergence.
 
 # %%
-# compute_and_save_divs_and_corrs("logistic", "mt")
-# compute_and_save_divs_and_corrs("ikeda", "mt")
+compute_and_save_divs_and_corrs("logistic", "mt")
+compute_and_save_divs_and_corrs("ikeda", "mt")
 # compute_and_save_divs_and_corrs("tinkerbell", "mt")
 # compute_and_save_divs_and_corrs("henon", "mt")
 
@@ -514,7 +503,7 @@ def compute_and_save_divs_and_corrs(sys_name: str, div_type: str):
 # #### DISCRETE merge tree versions
 
 # %%
-# compute_and_save_divs_and_corrs("logistic", "dmt")
+compute_and_save_divs_and_corrs("logistic", "dmt")
 compute_and_save_divs_and_corrs("ikeda", "dmt")
 # compute_and_save_divs_and_corrs("tinkerbell", "dmt")
 # compute_and_save_divs_and_corrs("henon", "dmt")

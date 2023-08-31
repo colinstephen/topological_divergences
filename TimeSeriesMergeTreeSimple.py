@@ -1,4 +1,5 @@
 import numpy as np
+import scipy as sp
 import math
 import networkx as nx
 from collections import Counter
@@ -22,7 +23,7 @@ def perturb_array(array, epsilon=1e-10):
 
 
 def merge_tree(array):
-    """Return sublevel set merge tree of given time series array.
+    """Sublevel set merge tree of given time series array.
 
     This computes the merge tree of the piecewise linear interpolation of
     the input array.
@@ -81,7 +82,7 @@ def merge_tree(array):
 
 
 def superlevel_merge_tree(array):
-    """Return superlevel set merge tree of given time series array.
+    """Superlevel set merge tree of given time series array.
 
     This computes the superlevel merge tree of the piecewise linear
     interpolation of the input array.
@@ -104,7 +105,7 @@ def superlevel_merge_tree(array):
 
 
 def merge_tree_discrete(array):
-    """Return sublevel set discrete merge tree of given time series array.
+    """Sublevel set discrete merge tree of given time series array.
 
     This computes the merge tree over a chain graph whose edges are weighted
     with the values in `array` and whose nodes are weighted with `-np.inf`.
@@ -120,7 +121,7 @@ def merge_tree_discrete(array):
 
 
 def superlevel_merge_tree_discrete(array):
-    """Return superlevel set discrete merge tree of given time series array.
+    """Superlevel set discrete merge tree of given time series array.
 
     This computes the superlevel merge tree over a chain graph whose edges are
     weighted with the values in `array` and whose nodes are weighted with
@@ -136,8 +137,22 @@ def superlevel_merge_tree_discrete(array):
     return G
 
 
+def make_increasing(T):
+    """Alter tree node heights so leaves are minimal and root is maximal."""
+
+    tree = T.copy()
+    min_height = minimum_finite_height(T)
+    max_height = maximum_finite_height(T)
+
+    # Update the heights of nodes in the transformed tree
+    for _, data in tree.nodes(data=True):
+        data["height"] = min_height + max_height - data["height"]
+
+    return tree
+
+
 def as_directed_tree(T: nx.Graph, root_to_leaf=False) -> nx.DiGraph:
-    """Return copy of T that is a DiGraph
+    """Copy of T that is a DiGraph
     
     Default direction of edges is from leaves to root.
     Note: assumes height attribute increases towards root.
@@ -157,56 +172,6 @@ def as_directed_tree(T: nx.Graph, root_to_leaf=False) -> nx.DiGraph:
                 tree.add_edge(u, v)
             else:
                 tree.add_edge(v, u)
-    return tree
-
-
-def lca(T: nx.DiGraph, u, v, root):
-    """Least common ancestor of u,v in T.
-
-    Tree is assumed directed from leaves to `root`.
-    """
-    assert nx.is_tree(T)
-    p1 = nx.shortest_path(T, u, root)
-    p2 = nx.shortest_path(T, v, root)
-    for n in p1:
-        if n in p2:
-            return n
-
-
-def leaf_to_leaf_path_length(T: nx.DiGraph, u, v, root):
-    """Count of edges between u and v in T."""
-    assert nx.is_tree(T)
-    return len(leaf_to_leaf_path(T, u, v, root)) - 1
-
-
-def leaf_to_leaf_path(T: nx.DiGraph, u, v, root):
-    """Edges between leaves u and v in T."""
-    assert nx.is_tree(T)
-    p1 = nx.shortest_path(T, u, root)  # fast for a digraph
-    p2 = nx.shortest_path(T, v, root)  # fast for a digraph
-    path = []
-    for n in p1:
-        path.append(n)
-        if n in p2:
-            break
-    for n in p2[::-1]:
-        if n in p1:
-            continue
-        path.append(n)
-    return path
-
-
-def make_increasing(T):
-    """Alter tree node heights so leaves are minimal and root is maximal."""
-
-    tree = T.copy()
-    min_height = minimum_height(T)
-    max_height = maximum_height(T)
-
-    # Update the heights of nodes in the transformed tree
-    for _, data in tree.nodes(data=True):
-        data["height"] = min_height + max_height - data["height"]
-
     return tree
 
 
@@ -235,74 +200,30 @@ def get_root(T: nx.Graph):
 
 
 def get_heights(T: nx.Graph):
-    """List all heights of nodes in the tree."""
+    """Heights of nodes in the tree."""
     return np.array([data["height"] for _, data in T.nodes(data=True)])
 
 
 def get_heights_finite(T: nx.Graph):
-    """List all finite heights of nodes in the tree."""
+    """Finite heights of nodes in the tree."""
     heights = get_heights(T)
     return heights[np.isfinite(heights)]
 
 
-def minimum_height(T: nx.Graph):
-    """Find minimum (finite) height in the tree."""
+def minimum_finite_height(T: nx.Graph):
+    """Minimum (finite) height in the tree."""
     return min(get_heights_finite(T))
 
 
-def maximum_height(T: nx.Graph):
-    """Find maximum (finite) height in the tree."""
+def maximum_finite_height(T: nx.Graph):
+    """Maximum (finite) height in the tree."""
     return max(get_heights_finite(T))
 
 
-def leaf_to_leaf_path_lengths(T: nx.Graph, offset=1):
-    """List path lengths from leaf `n` to leaf `n + offset` over all `n`.
 
-    Tree `T` is assumed ordered by node attribute `idx`.
-
-    Note: if `T` is a sublevel discrete merge tree and `offset=1` then the
-    returned sequence is the ordered degree sequence of nodes in the horizon
-    visibility graph for the time series that generated `T`.
-    """
-    ordered_leaf_nodes = get_leaves(T, order_by_attr="idx")
-    num_leaves = len(ordered_leaf_nodes)
-
-    if num_leaves - offset < 1:
-        return [0]
-
-    # use a directed tree to speed up path length computations
-    T_directed = as_directed_tree(T)
-    root = get_root(T)
-
-    lengths = []
-    for i in range(num_leaves - offset):
-        node1 = ordered_leaf_nodes[i]
-        node2 = ordered_leaf_nodes[i + offset]
-        length = leaf_to_leaf_path_length(T_directed, node1, node2, root)
-        lengths.append(length)
-
-    return lengths
-
-
-def distribution_from_samples(sample_array: list[int], DISTRIBUTION_VECTOR_LENGTH=100):
-    """Empirical distribution of integers in `sample_array`.
-
-    Returns an array, `distribution`, such that `distribution[n]` contains relative
-    frequency of occurrence of value `n`.
-    """
-    item_counts = Counter(sample_array)
-    n_samples = len(sample_array)
-    empirical_distribution = {int(k): v / n_samples for k, v in item_counts.items()}
-    distribution = np.zeros(DISTRIBUTION_VECTOR_LENGTH)
-    for k in sorted(empirical_distribution.keys()):
-        if k >= DISTRIBUTION_VECTOR_LENGTH:
-            break
-        distribution[k] = empirical_distribution[k]
-    return distribution
-
-
+@lru_cache
 def sum_of_edge_lengths(T: nx.Graph):
-    """Infer edge lengths from node heights and add them together."""
+    """Sum of edge lengths inferred from node heights."""
     length = 0
     for u, v in T.edges:
         h1, h2 = T.nodes[u]["height"], T.nodes[v]["height"]
@@ -311,67 +232,60 @@ def sum_of_edge_lengths(T: nx.Graph):
         length += abs(h1 - h2)
     return length
 
-def cophenetic_matrix(T: nx.Graph) -> np.array:
-    """Cophenetic distance between all pairs of leaves."""
+
+def get_idx_pairs(n: int) -> list[tuple]:
+    """List of distinct pairs of values (modulo order) between 0 and n-1."""
+    idx_pairs = []
+    for i in range(n-1):
+        for j in range(i+1, n):
+            idx_pairs.append((i,j))
+    return idx_pairs
+
+
+def get_leaf_pairs(T: nx.Graph) -> list:
+    """List of pairs of leaves in T."""
     leaves = get_leaves(T)
     n = len(leaves)
+    idx_pairs = get_idx_pairs(n)
+    leaf_pairs = [(leaves[i], leaves[j]) for i,j in idx_pairs]
+    return leaf_pairs
 
-    # use a directed tree to speed up path length computations
+
+@lru_cache
+def get_lcas(T: nx.Graph) -> list[tuple]:
+    """List of pairs of leaves and their lca nodes in T."""
     T_directed = as_directed_tree(T, root_to_leaf=True)
     root = get_root(T)
-
-    D = np.zeros((n, n))
-    idx_pairs = []
-    for i in range(n - 1):
-        for j in range(i + 1, n):
-            idx_pairs.append((i, j))
-    leaf_pairs = [(leaves[i], leaves[j]) for i,j in idx_pairs]
+    leaf_pairs = get_leaf_pairs(T)
     lcas = nx.tree_all_pairs_lowest_common_ancestor(T_directed, root=root, pairs=leaf_pairs)
-    for ((i, j), ((u, v), lca)) in zip(idx_pairs, lcas):
-        D[i,j] = T.nodes[lca]["height"]
-    D = D + D.T
-    return D
+    return lcas
 
 
-def relative_entropy(ps, qs):
-    pnz = (ps != 0) & np.isfinite(ps) & ~np.isnan(ps)
-    qnz = (qs != 0) & np.isfinite(qs) & ~np.isnan(qs)
-    pqnz = pnz & qnz
-    ps = ps[pqnz]
-    qs = qs[pqnz]
-    minp = np.min(ps)
-    minq = np.min(qs)
-    ps = ps - min(minp, minq) + 1e-9
-    qs = qs - min(minp, minq) + 1e-9
-    ps = ps / np.sum(ps)
-    qs = qs / np.sum(qs)
-    return np.sum(ps * np.log(ps/qs))
-
-
-def entropy(ps):
-    pnz = (ps != 0) & np.isfinite(ps) & ~np.isnan(ps)
-    ps = ps[pnz]
-    minp = np.min(ps)
-    ps = ps - minp + 1e-9
-    ps = ps / np.sum(ps)
-    return np.sum(ps * np.log(ps))
+@lru_cache
+def cophenetic_vector(T: nx.Graph) -> np.array:
+    """List of node heights in T of leaf-pair lcas."""
+    lcas = get_lcas(T)
+    heights = []
+    for ((u, v), lca) in lcas:
+        heights.append(T.nodes[lca]["height"])
+    return np.array(heights)
 
 
 class TimeSeriesMergeTree:
-    """Access merge tree based topological divergences."""
+    """Define merge tree vectorisations and topological divergences."""
 
     def __init__(
         self,
         time_series,
         discrete=False,
-        INTERLEAVING_DIVERGENCE_MESH=0.5,
-        INTERLEAVING_PRUNE_THRESHOLD=None,
+        MESHES=[0.5, 0.4],
+        THRESHES=[None, 0.1],
         DISTRIBUTION_VECTOR_LENGTH=100,
     ) -> None:
         self.time_series = time_series
         self.discrete = discrete
-        self.INTERLEAVING_DIVERGENCE_MESH = INTERLEAVING_DIVERGENCE_MESH
-        self.INTERLEAVING_PRUNE_THRESHOLD = INTERLEAVING_PRUNE_THRESHOLD
+        self.MESHES = MESHES
+        self.THRESHES = THRESHES
         self.DISTRIBUTION_VECTOR_LENGTH = DISTRIBUTION_VECTOR_LENGTH
         self._merge_tree = None
         self._superlevel_merge_tree = None
@@ -396,31 +310,52 @@ class TimeSeriesMergeTree:
                 self._superlevel_merge_tree = superlevel_merge_tree(self.time_series)
         return self._superlevel_merge_tree
 
+
+    @property
+    def vectorisations(self):
+        # vector representations of the merge tree
+        pass
+
+
+
     @property
     def divergences(self):
         # dictionary of divergences associated to the merge tree representation
         divs = dict()
 
-        divs = divs | dict(
-            interleaving=self.interleaving_divergence,
-            length_normalised_interleaving=self.length_normalised_interleaving_divergence,
-            edge_normalised_interleaving=self.edge_normalised_interleaving_divergence,
-        )
-
         if self.discrete:
-            # matrix-based measures only defined for discrete case (guarantees same number of leaves)
+            # divergences that require equal leaf counts in the superlevel and sublevel trees
             divs = divs | dict(
-                cophenetic_matrix=self.cophenetic_matrix_divergence,
-                length_normalised_cophenetic_matrix=self.length_normalised_cophenetic_matrix_divergence,
+                cophenetic=self.cophenetic_vector_divergence,
+                cophenetic_reverse=self.cophenetic_reverse_vector_divergence,
+                cophenetic_length=self.length_normalised_cophenetic_vector_divergence,
+                cophenetic_reverse_length=self.length_normalised_cophenetic_reverse_vector_divergence,
+                cophenetic_edge=self.edge_normalised_cophenetic_vector_divergence,
+                cophenetic_reverse_edge=self.edge_normalised_cophenetic_reverse_vector_divergence,
             )
+
+        else:
+            # interleavings for PL functions (interleavings for discrete MTs are too slow)
+            meshes = self.MESHES
+            threshes = self.THRESHES
+
+            for mesh in meshes:
+                for thresh in threshes:
+
+                    if thresh is not None and mesh <= thresh:
+                        continue
+
+                    divs = divs | {
+                        f"interleaving_{mesh}_{thresh}": self.interleaving_divergence(mesh, thresh),
+                        f"interleaving_length_{mesh}_{thresh}": self.length_normalised_interleaving_divergence(mesh, thresh),
+                        f"interleaving_edge_{mesh}_{thresh}": self.edge_normalised_interleaving_divergence(mesh, thresh),
+                    }
 
         return divs
 
-    @property
     @lru_cache()
-    def interleaving_divergence(self):
+    def interleaving_divergence(self, mesh, thresh):
         # merge tree interleaving between super and sub level trees
-        mesh = self.INTERLEAVING_DIVERGENCE_MESH
         T1 = self.merge_tree
         T2 = make_increasing(self.superlevel_merge_tree)
         for node, data in T1.nodes(data=True):
@@ -433,12 +368,12 @@ class TimeSeriesMergeTree:
                 data["height"] = T2.nodes[neighbour]["height"] - 1.5 * mesh
         MT1 = dmt_merge_tree(T1)
         MT2 = dmt_merge_tree(T2)
-        if self.INTERLEAVING_PRUNE_THRESHOLD is not None:
+        if thresh is not None:
             try:
                 MT1_thresh = MT1.copy()
                 MT2_thresh = MT2.copy()
-                MT1_thresh.threshold(self.INTERLEAVING_PRUNE_THRESHOLD)
-                MT2_thresh.threshold(self.INTERLEAVING_PRUNE_THRESHOLD)
+                MT1_thresh.threshold(thresh)
+                MT2_thresh.threshold(thresh)
                 MT1 = MT1_thresh
                 MT2 = MT2_thresh
             except Exception as e:
@@ -450,135 +385,56 @@ class TimeSeriesMergeTree:
             distance = -1
         return distance
 
-    @property
-    def length_normalised_interleaving_divergence(self):
+    def length_normalised_interleaving_divergence(self, mesh, thresh):
         # normalise interleaving by total height of tree
         l1 = sum_of_edge_lengths(self.merge_tree)
         l2 = sum_of_edge_lengths(self.superlevel_merge_tree)
-        return self.interleaving_divergence / (l1 + l2)
+        return self.interleaving_divergence(mesh, thresh) / (l1 + l2)
 
-    @property
-    def edge_normalised_interleaving_divergence(self):
+    def edge_normalised_interleaving_divergence(self, mesh, thresh):
         # normalise interleaving by total number of edges
         n1 = self.merge_tree.number_of_edges()
         n2 = self.superlevel_merge_tree.number_of_edges()
-        return self.interleaving_divergence / (n1 + n2)
-
-    def offset_path_length_distribution_divergences(self, offset):
-        # wasserstein distance between pairwise leaf-to-leaf path length distributions
-        T1 = self.merge_tree
-        T2 = make_increasing(self.superlevel_merge_tree)
-        l1 = leaf_to_leaf_path_lengths(T1, offset=offset)
-        l2 = leaf_to_leaf_path_lengths(T2, offset=offset)
-        d1 = distribution_from_samples(
-            l1, DISTRIBUTION_VECTOR_LENGTH=self.DISTRIBUTION_VECTOR_LENGTH
-        )
-        d2 = distribution_from_samples(
-            l2, DISTRIBUTION_VECTOR_LENGTH=self.DISTRIBUTION_VECTOR_LENGTH
-        )
-        return wasserstein_distance(d1, d2)
+        return self.interleaving_divergence(mesh, thresh) / (n1 + n2)
 
     @property
-    def cophenetic_matrix_divergence(self):
-        # frobenius norm of difference between leaf-to-leaf cophenetic distances
-        D1 = cophenetic_matrix(self.merge_tree)
-        D2 = cophenetic_matrix(make_increasing(self.superlevel_merge_tree))
-        return np.linalg.norm(D1 - D2)
+    @lru_cache
+    def cophenetic_vector_divergence(self):
+        v1 = cophenetic_vector(self.merge_tree)
+        v2 = cophenetic_vector(make_increasing(self.superlevel_merge_tree))
+        return np.linalg.norm(v1 - v2)
+    
+    @property
+    @lru_cache
+    def cophenetic_reverse_vector_divergence(self):
+        v1 = cophenetic_vector(self.merge_tree)
+        v2 = cophenetic_vector(make_increasing(self.superlevel_merge_tree))[::-1]
+        return np.linalg.norm(v1 - v2)
 
     @property
-    def length_normalised_cophenetic_matrix_divergence(self):
-        # normalise interleaving by total height of tree
+    def length_normalised_cophenetic_vector_divergence(self):
+        # normalise divergence by total height of tree
         l1 = sum_of_edge_lengths(self.merge_tree)
         l2 = sum_of_edge_lengths(self.superlevel_merge_tree)
-        return self.cophenetic_matrix_divergence / (l1 + l2)
+        return self.cophenetic_vector_divergence / (l1 + l2)
 
+    @property
+    def edge_normalised_cophenetic_vector_divergence(self):
+        # normalise divergence by total number of edges
+        n1 = self.merge_tree.number_of_edges()
+        n2 = self.superlevel_merge_tree.number_of_edges()
+        return self.cophenetic_vector_divergence / (n1 + n2)
 
-if __name__ == "__main__":
-    # Test the function
-    import numpy as np
-    from matplotlib import pyplot as plt
+    @property
+    def length_normalised_cophenetic_reverse_vector_divergence(self):
+        # normalise divergence by total height of tree
+        l1 = sum_of_edge_lengths(self.merge_tree)
+        l2 = sum_of_edge_lengths(self.superlevel_merge_tree)
+        return self.cophenetic_reverse_vector_divergence / (l1 + l2)
 
-    array = np.random.uniform(size=100)
-
-    plt.plot(array)
-    plt.show()
-
-    G = merge_tree(array)
-    print(G.nodes(data=True))
-    print(G.edges())
-    print(nx.is_tree(G))
-    print(leaf_to_leaf_path_lengths(as_directed_tree(G), offset=1))
-    print(leaf_to_leaf_path_lengths(as_directed_tree(G), offset=2))
-    nx.draw(
-        G,
-        with_labels=True,
-        labels={n: (data["height"], data["idx"]) for n, data in G.nodes(data=True)},
-    )
-    plt.show()
-
-    G2 = superlevel_merge_tree(array)
-    print(G2.nodes(data=True))
-    print(G2.edges())
-    print(nx.is_tree(G2))
-    nx.draw(
-        G2,
-        with_labels=True,
-        labels={n: (data["height"], data["idx"]) for n, data in G2.nodes(data=True)},
-    )
-    plt.show()
-
-    G3 = make_increasing(G2)
-    print(G3.nodes(data=True))
-    print(G3.edges())
-    print(nx.is_tree(G3))
-    nx.draw(
-        G3,
-        with_labels=True,
-        labels={n: (data["height"], data["idx"]) for n, data in G3.nodes(data=True)},
-    )
-    plt.show()
-
-    tsmt = TimeSeriesMergeTree(time_series=array, INTERLEAVING_DIVERGENCE_MESH=0.1)
-    divergences = tsmt.divergences
-    print(divergences)
-
-    G = merge_tree_discrete(array)
-    print(G.nodes(data=True))
-    print(G.edges())
-    print(nx.is_tree(G))
-    print(leaf_to_leaf_path_lengths(as_directed_tree(G), offset=1))
-    print(leaf_to_leaf_path_lengths(as_directed_tree(G), offset=2))
-    nx.draw(
-        G,
-        with_labels=True,
-        labels={n: (data["height"], data["idx"]) for n, data in G.nodes(data=True)},
-    )
-    plt.show()
-
-    G2 = superlevel_merge_tree_discrete(array)
-    print(G2.nodes(data=True))
-    print(G2.edges())
-    print(nx.is_tree(G2))
-    nx.draw(
-        G2,
-        with_labels=True,
-        labels={n: (data["height"], data["idx"]) for n, data in G2.nodes(data=True)},
-    )
-    plt.show()
-
-    G3 = make_increasing(G2)
-    print(G3.nodes(data=True))
-    print(G3.edges())
-    print(nx.is_tree(G3))
-    nx.draw(
-        G3,
-        with_labels=True,
-        labels={n: (data["height"], data["idx"]) for n, data in G3.nodes(data=True)},
-    )
-    plt.show()
-
-    tsmt = TimeSeriesMergeTree(
-        time_series=array, discrete=True, INTERLEAVING_DIVERGENCE_MESH=0.1
-    )
-    divergences = tsmt.divergences
-    print(divergences)
+    @property
+    def edge_normalised_cophenetic_reverse_vector_divergence(self):
+        # normalise divergence by total number of edges
+        n1 = self.merge_tree.number_of_edges()
+        n2 = self.superlevel_merge_tree.number_of_edges()
+        return self.cophenetic_reverse_vector_divergence / (n1 + n2)
