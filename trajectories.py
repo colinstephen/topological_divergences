@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from functools import partial
+
 from numpy.random import MT19937
 from numpy.random import RandomState
 from numpy.random import SeedSequence
@@ -11,6 +13,10 @@ from HenonMapLCE import henon_lce
 from IkedaMapLCE import ikeda_lce
 from TinkerbellMapLCE import tinkerbell_lce
 
+import ipyparallel as ipp
+clients = ipp.Client()
+dv = clients.direct_view()
+lbv = clients.load_balanced_view()
 
 def configdict(cls):
     """Given a configuration class, convert it and its properties to a dictionary."""
@@ -53,14 +59,16 @@ def generate_trajectories(RANDOM_SEED=42, TS_LENGTH=500, CONTROL_PARAM_SAMPLES=5
             )
         )
     ]
-    logistic_dataset = [
-        logistic_lce(
-            mapParams=params,
-            nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH,
-            includeTrajectory=True,
-        )
-        for params in logistic_control_params
-    ]
+    logistic_lce_partial = partial(logistic_lce, nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH, includeTrajectory=True)
+    logistic_dataset = lbv.map_sync(logistic_lce_partial, logistic_control_params)
+    # logistic_dataset = [
+    #     logistic_lce(
+    #         mapParams=params,
+    #         nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH,
+    #         includeTrajectory=True,
+    #     )
+    #     for params in logistic_control_params
+    # ]
     logistic_trajectories = [
         z_normalise(data["trajectory"][:, LOGISTIC_CONFIG.TRAJECTORY_DIM])
         for data in logistic_dataset
@@ -85,14 +93,16 @@ def generate_trajectories(RANDOM_SEED=42, TS_LENGTH=500, CONTROL_PARAM_SAMPLES=5
             )
         )
     ]
-    henon_dataset = [
-        henon_lce(
-            mapParams=params,
-            nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH,
-            includeTrajectory=True,
-        )
-        for params in henon_control_params
-    ]
+    henon_lce_partial = partial(henon_lce, nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH, includeTrajectory=True)
+    henon_dataset = lbv.map_sync(henon_lce_partial, henon_control_params)
+    # henon_dataset = [
+    #     henon_lce(
+    #         mapParams=params,
+    #         nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH,
+    #         includeTrajectory=True,
+    #     )
+    #     for params in henon_control_params
+    # ]
     henon_trajectories = [
         z_normalise(data["trajectory"][:, HENON_CONFIG.TRAJECTORY_DIM])
         for data in henon_dataset
@@ -116,14 +126,16 @@ def generate_trajectories(RANDOM_SEED=42, TS_LENGTH=500, CONTROL_PARAM_SAMPLES=5
             )
         )
     ]
-    ikeda_dataset = [
-        ikeda_lce(
-            mapParams=params,
-            nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH,
-            includeTrajectory=True,
-        )
-        for params in ikeda_control_params
-    ]
+    ikeda_lce_partial = partial(ikeda_lce, nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH, includeTrajectory=True)
+    ikeda_dataset = lbv.map_sync(ikeda_lce_partial, ikeda_control_params)
+    # ikeda_dataset = [
+    #     ikeda_lce(
+    #         mapParams=params,
+    #         nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH,
+    #         includeTrajectory=True,
+    #     )
+    #     for params in ikeda_control_params
+    # ]
     ikeda_trajectories = [
         z_normalise(data["trajectory"][:, IKEDA_CONFIG.TRAJECTORY_DIM])
         for data in ikeda_dataset
@@ -147,14 +159,16 @@ def generate_trajectories(RANDOM_SEED=42, TS_LENGTH=500, CONTROL_PARAM_SAMPLES=5
             )
         )
     ]
-    tinkerbell_dataset = [
-        tinkerbell_lce(
-            mapParams=params,
-            nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH,
-            includeTrajectory=True,
-        )
-        for params in tinkerbell_control_params
-    ]
+    tinkerbell_lce_partial = partial(tinkerbell_lce, nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH, includeTrajectory=True)
+    tinkerbell_dataset = lbv.map_sync(tinkerbell_lce_partial, tinkerbell_control_params)
+    # tinkerbell_dataset = [
+    #     tinkerbell_lce(
+    #         mapParams=params,
+    #         nIterates=EXPERIMENT_CONFIG.TIME_SERIES_LENGTH,
+    #         includeTrajectory=True,
+    #     )
+    #     for params in tinkerbell_control_params
+    # ]
     tinkerbell_trajectories = [
         z_normalise(data["trajectory"][:, TINKERBELL_CONFIG.TRAJECTORY_DIM])
         for data in tinkerbell_dataset
@@ -170,6 +184,7 @@ def generate_trajectories(RANDOM_SEED=42, TS_LENGTH=500, CONTROL_PARAM_SAMPLES=5
             "exp_config": configdict(EXPERIMENT_CONFIG),
             "sys_config": configdict(LOGISTIC_CONFIG),
             "sys_params": logistic_control_param_values,
+            "param_name": "r",
             "dataset": logistic_dataset,
             "trajectories": logistic_trajectories,
             "lces": logistic_lces,
@@ -178,6 +193,7 @@ def generate_trajectories(RANDOM_SEED=42, TS_LENGTH=500, CONTROL_PARAM_SAMPLES=5
             "exp_config": configdict(EXPERIMENT_CONFIG),
             "sys_config": configdict(IKEDA_CONFIG),
             "sys_params": ikeda_control_param_values,
+            "param_name": "a",
             "dataset": ikeda_dataset,
             "trajectories": ikeda_trajectories,
             "lces": ikeda_lces,
@@ -186,6 +202,7 @@ def generate_trajectories(RANDOM_SEED=42, TS_LENGTH=500, CONTROL_PARAM_SAMPLES=5
             "exp_config": configdict(EXPERIMENT_CONFIG),
             "sys_config": configdict(HENON_CONFIG),
             "sys_params": henon_control_param_values,
+            "param_name": "a",
             "dataset": henon_dataset,
             "trajectories": henon_trajectories,
             "lces": henon_lces,
@@ -194,6 +211,7 @@ def generate_trajectories(RANDOM_SEED=42, TS_LENGTH=500, CONTROL_PARAM_SAMPLES=5
             "exp_config": configdict(EXPERIMENT_CONFIG),
             "sys_config": configdict(TINKERBELL_CONFIG),
             "sys_params": tinkerbell_control_param_values,
+            "param_name": "a",
             "dataset": tinkerbell_dataset,
             "trajectories": tinkerbell_trajectories,
             "lces": tinkerbell_lces,
