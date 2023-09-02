@@ -472,10 +472,10 @@ def compute_and_save_divs_and_corrs(sys_name: str, div_type: str):
 # Wasserstein and $L_p$ divergences of the time series HVG degree distributions.
 
 # %%
-compute_and_save_divs_and_corrs("logistic", "hvg")
-compute_and_save_divs_and_corrs("ikeda", "hvg")
-compute_and_save_divs_and_corrs("tinkerbell", "hvg")
-compute_and_save_divs_and_corrs("henon", "hvg")
+# compute_and_save_divs_and_corrs("logistic", "hvg")
+# compute_and_save_divs_and_corrs("ikeda", "hvg")
+# compute_and_save_divs_and_corrs("tinkerbell", "hvg")
+# compute_and_save_divs_and_corrs("henon", "hvg")
 
 # %% [markdown]
 # ### Persistent homology divergences
@@ -483,10 +483,10 @@ compute_and_save_divs_and_corrs("henon", "hvg")
 # Various divergences based on the superlevel and sublevel persistence diagrams.
 
 # %%
-compute_and_save_divs_and_corrs("logistic", "ph")
-compute_and_save_divs_and_corrs("ikeda", "ph")
-compute_and_save_divs_and_corrs("tinkerbell", "ph")
-compute_and_save_divs_and_corrs("henon", "ph")
+# compute_and_save_divs_and_corrs("logistic", "ph")
+# compute_and_save_divs_and_corrs("ikeda", "ph")
+# compute_and_save_divs_and_corrs("tinkerbell", "ph")
+# compute_and_save_divs_and_corrs("henon", "ph")
 
 # %% [markdown]
 # ### Merge tree divergences
@@ -494,18 +494,18 @@ compute_and_save_divs_and_corrs("henon", "ph")
 # Interleaving divergence and leaf-to-offset-leaf path length distribution divergence.
 
 # %%
-compute_and_save_divs_and_corrs("logistic", "mt")
-compute_and_save_divs_and_corrs("ikeda", "mt")
-compute_and_save_divs_and_corrs("tinkerbell", "mt")
-compute_and_save_divs_and_corrs("henon", "mt")
+# compute_and_save_divs_and_corrs("logistic", "mt")
+# compute_and_save_divs_and_corrs("ikeda", "mt")
+# compute_and_save_divs_and_corrs("tinkerbell", "mt")
+# compute_and_save_divs_and_corrs("henon", "mt")
 
 # %% [markdown]
 # #### DISCRETE merge tree versions
 
 # %%
-compute_and_save_divs_and_corrs("logistic", "dmt")
-compute_and_save_divs_and_corrs("ikeda", "dmt")
-compute_and_save_divs_and_corrs("tinkerbell", "dmt")
+# compute_and_save_divs_and_corrs("logistic", "dmt")
+# compute_and_save_divs_and_corrs("ikeda", "dmt")
+# compute_and_save_divs_and_corrs("tinkerbell", "dmt")
 compute_and_save_divs_and_corrs("henon", "dmt")
 # test = []
 # for i, tsdmt in enumerate(ikeda_tsdmts):
