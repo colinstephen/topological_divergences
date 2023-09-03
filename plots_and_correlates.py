@@ -27,6 +27,7 @@ def plot_lce_estimate_and_correlation(
     show_plot=True,
     sharey=True,
     plot_actual=False,
+    dpi=300,
 ):
     lce_estimate = np.array(lce_estimate)
     lce_actual = np.array(lce_actual)
@@ -43,7 +44,7 @@ def plot_lce_estimate_and_correlation(
     lce_spearmanr_pos = stats.spearmanr(lce_estimate[pos_mask], lce_actual[pos_mask])
 
     if show_plot:
-        fig, (ax1, ax2) = plt.subplots(1, 2, sharey=sharey, figsize=(12, 6), dpi=300)
+        fig, (ax1, ax2) = plt.subplots(1, 2, sharey=sharey, figsize=(12, 6), dpi=dpi)
 
         ax1.plot(
             control_params,
