@@ -72,12 +72,12 @@ def plot_lce_estimate_and_correlation(
         ax2.scatter(
             lce_actual,
             lce_estimate,
-            s=1.0,
+            s=2.0,
             label=lce_estimate_name + " $\lambda_{\max}$",
         )
         # ax2.scatter(lce_actual, lce_actual, s=0.8, label="Benettin (true) $\lambda_{\max}$")
         ax2.axvline(0, linestyle="--", c="orange")
-        ax2.axhline(0, linestyle="--", c="orange")
+        # ax2.axhline(0, linestyle="--", c="orange")
         ax2.legend()
         ax2.set_xlabel("Largest Lyapunov Exponent: $\lambda_{\max}$")
         ax2.set_ylabel("Estimated $\lambda_{\max}$")
