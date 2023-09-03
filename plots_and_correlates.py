@@ -23,7 +23,6 @@ def plot_lce_estimate_and_correlation(
     lce_actual,
     control_params,
     sequence_length,
-    lce_actual_name="Benettin (true)",
     logy=False,
     show_plot=True,
     sharey=True,
@@ -32,8 +31,6 @@ def plot_lce_estimate_and_correlation(
     lce_estimate = np.array(lce_estimate)
     lce_actual = np.array(lce_actual)
 
-    lce_estimate_name = lce_estimate_name.capitalize()
-    system_name = system_name.capitalize()
     pos_mask = lce_actual > 0
     num_samples = len(lce_actual)
 
@@ -52,35 +49,36 @@ def plot_lce_estimate_and_correlation(
             control_params,
             lce_estimate,
             lw=0.9,
-            label=lce_estimate_name + " $\lambda_{\max}$",
+            label=lce_estimate_name,
         )
         if plot_actual:
             ax1.plot(
                 control_params,
                 lce_actual,
                 lw=0.9,
-                label=lce_actual_name + " $\lambda_{\max}$",
+                label="$\lambda_{\max}$ (Benettin)",
+                c="orange"
             )
-            ax1.axhline(0, linestyle="--", c="orange")
-        ax1.legend()
+            ax1.axhline(0, linestyle="--", c="red", lw=0.75)
+            ax1.set_ylabel("$\lambda_{\max}$")
+
         ax1.set_xlabel(f"{system_name} control parameter ${control_param_name}$")
-        ax1.set_ylabel("Estimated $\lambda_{\max}$")
+        ax1.set_ylabel(lce_estimate_name)
         ax1.title.set_text(
             f"Finite estimates (all): {count_finite}/{count_all}. Finite estimates (chaos): {count_finite_pos}/{count_all_pos}."
         )
+        ax1.legend()
 
         ax2.scatter(
             lce_actual,
             lce_estimate,
             s=2.0,
-            label=lce_estimate_name + " $\lambda_{\max}$",
+            label=lce_estimate_name,
         )
         # ax2.scatter(lce_actual, lce_actual, s=0.8, label="Benettin (true) $\lambda_{\max}$")
-        ax2.axvline(0, linestyle="--", c="orange")
-        # ax2.axhline(0, linestyle="--", c="orange")
-        ax2.legend()
+        ax2.axvline(0, linestyle="--", c="orange", lw=1)
         ax2.set_xlabel("Largest Lyapunov Exponent: $\lambda_{\max}$")
-        ax2.set_ylabel("Estimated $\lambda_{\max}$")
+        ax2.set_ylabel(lce_estimate_name)
         ax2.title.set_text(
             f"Spearman correlation: {lce_spearmanr_all[0]:.3f} (all), {lce_spearmanr_pos[0]:.3f} (chaos)"
         )
@@ -90,12 +88,12 @@ def plot_lce_estimate_and_correlation(
             ax2.set_yscale("symlog")
 
         plt.suptitle(
-            lce_estimate_name
-            + " estimate of $\lambda_{\max}$ for "
-            + system_name
-            + f" map with {num_samples} trajectories of length $n={sequence_length}$."
+            f"{lce_estimate_name} for {system_name} map with {num_samples} trajectories of length $n={sequence_length}$."
         )
         plt.tight_layout()
         plt.show()
 
-    return lce_spearmanr_all, lce_spearmanr_pos
+    return {
+
+        "correlations": (lce_spearmanr_all, lce_spearmanr_pos)
+    }
