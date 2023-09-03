@@ -1,3 +1,4 @@
+import re
 import numpy as np
 from scipy import stats
 from matplotlib import pyplot as plt
@@ -25,6 +26,7 @@ def plot_lce_estimate_and_correlation(
     sequence_length,
     logy=False,
     show_plot=True,
+    save_plot=True,  # only works if show_plot==True
     sharey=True,
     plot_actual=False,
     dpi=300,
@@ -92,9 +94,13 @@ def plot_lce_estimate_and_correlation(
             f"{lce_estimate_name} for {system_name} map with {num_samples} trajectories of length $n={sequence_length}$."
         )
         plt.tight_layout()
+        if save_plot:
+            safe_lce_estimate_name = "".join([c for c in lce_estimate_name if re.match(r'\w', c)])
+            safe_system_name = "".join([c for c in system_name if re.match(r'\w', c)])
+            plt.savefig(f"outputs/figures/{safe_lce_estimate_name}__{safe_system_name}__{sequence_length}.pdf")
         plt.show()
 
     return {
-
-        "correlations": (lce_spearmanr_all, lce_spearmanr_pos)
+        "spearmanr": lce_spearmanr_all,
+        "pos_spearmanr": lce_spearmanr_pos
     }
