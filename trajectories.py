@@ -28,13 +28,15 @@ def configdict(cls):
     return {cls.__name__: attributes}
 
 
-def z_normalise(ts: np.array) -> np.array:
+def z_normalise_(ts: np.array) -> np.array:
     mean = np.mean(ts)
     std = np.std(ts)
     return (ts - mean) / std
 
 
-def generate_trajectories(RANDOM_SEED=42, TS_LENGTH=500, CONTROL_PARAM_SAMPLES=500):
+def generate_trajectories(RANDOM_SEED=42, TS_LENGTH=500, CONTROL_PARAM_SAMPLES=500, normalise=True):
+
+    z_normalise = z_normalise_ if normalise else lambda x: x
 
     print(f"Experiment config -- SEED:{RANDOM_SEED}, LENGTH:{TS_LENGTH}, SAMPLES:{CONTROL_PARAM_SAMPLES}")
 
