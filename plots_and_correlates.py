@@ -27,12 +27,16 @@ def plot_lce_estimate_and_correlation(
     logy=False,
     show_plot=True,
     save_plot=True,  # only works if show_plot==True
-    sharey=True,
+    sharey=True,  # same y for the two sub-plots
+    twoy=False,  # allow two different scales on the first plot
     plot_actual=False,
     dpi=300,
 ):
     lce_estimate = np.array(lce_estimate)
     lce_actual = np.array(lce_actual)
+
+    lce_estimate_name = lce_estimate_name.replace("_", " ").capitalize()
+    system_name = system_name.replace("_", " ").capitalize()
 
     pos_mask = lce_actual > 0
     num_samples = len(lce_actual)
@@ -42,8 +46,8 @@ def plot_lce_estimate_and_correlation(
     count_finite_pos = np.sum(np.isfinite(lce_estimate[pos_mask]))
     count_all_pos = np.sum(pos_mask)
 
-    lce_spearmanr_all = stats.spearmanr(lce_estimate, lce_actual)
-    lce_spearmanr_pos = stats.spearmanr(lce_estimate[pos_mask], lce_actual[pos_mask])
+    lce_spearmanr_all = stats.spearmanr(lce_estimate, lce_actual, nan_policy="omit")
+    lce_spearmanr_pos = stats.spearmanr(lce_estimate[pos_mask], lce_actual[pos_mask], nan_policy="omit")
 
     if show_plot:
         fig, (ax1, ax2) = plt.subplots(1, 2, sharey=sharey, figsize=(12, 6), dpi=dpi)
@@ -55,22 +59,28 @@ def plot_lce_estimate_and_correlation(
             label=lce_estimate_name,
         )
         if plot_actual:
-            ax1.plot(
+            if twoy:
+                ax3 = ax1.twinx()
+            ax = ax3 if twoy else ax1
+            ax.plot(
                 control_params,
                 lce_actual,
                 lw=0.9,
                 label="$\lambda_{\max}$ (Benettin)",
                 c="orange"
             )
-            ax1.axhline(0, linestyle="--", c="red", lw=0.75)
-            ax1.set_ylabel("$\lambda_{\max}$")
+            ax.axhline(0, linestyle="--", c="C2", lw=0.6)
+            ax.set_ylabel("$\lambda_{\max}$")
+            ax.legend(loc=1)
+            [t.set_color('C1') for t in ax.yaxis.get_ticklabels()]
 
         ax1.set_xlabel(f"{system_name} control parameter ${control_param_name}$")
         ax1.set_ylabel(lce_estimate_name)
         ax1.title.set_text(
             f"Finite estimates (all): {count_finite}/{count_all}. Finite estimates (chaos): {count_finite_pos}/{count_all_pos}."
         )
-        ax1.legend()
+        ax1.legend(loc=3)
+        [t.set_color('C0') for t in ax1.yaxis.get_ticklabels()]
 
         ax2.scatter(
             lce_actual,
