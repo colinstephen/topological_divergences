@@ -323,7 +323,7 @@ class TimeSeriesMergeTree:
         # dictionary of divergences associated to the merge tree representation
         divs = dict()
 
-        if self.discrete:
+        if True:
             # divergences that require equal leaf counts in the superlevel and sublevel trees
             divs = divs | dict(
                 cophenetic=self.cophenetic_vector_divergence,

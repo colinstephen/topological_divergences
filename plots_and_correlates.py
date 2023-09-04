@@ -35,8 +35,8 @@ def plot_lce_estimate_and_correlation(
     lce_estimate = np.array(lce_estimate)
     lce_actual = np.array(lce_actual)
 
-    lce_estimate_name = lce_estimate_name.replace("_", " ").capitalize()
-    system_name = system_name.replace("_", " ").capitalize()
+    # lce_estimate_name = lce_estimate_name.replace("_", " ").capitalize()
+    # system_name = system_name.replace("_", " ").capitalize()
 
     pos_mask = lce_actual > 0
     num_samples = len(lce_actual)
