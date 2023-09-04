@@ -402,6 +402,9 @@ class TimeSeriesMergeTree:
     def cophenetic_vector_divergence(self):
         v1 = cophenetic_vector(self.merge_tree)
         v2 = cophenetic_vector(make_increasing(self.superlevel_merge_tree))
+        if len(v1) != len(v2):
+            print("WARNING: cophenetic vectors are different lengths. How?!")
+            return np.nan
         return np.linalg.norm(v1 - v2)
     
     @property
@@ -409,6 +412,9 @@ class TimeSeriesMergeTree:
     def cophenetic_reverse_vector_divergence(self):
         v1 = cophenetic_vector(self.merge_tree)
         v2 = cophenetic_vector(make_increasing(self.superlevel_merge_tree))[::-1]
+        if len(v1) != len(v2):
+            print("WARNING: cophenetic vectors are different lengths. How?!")
+            return np.nan
         return np.linalg.norm(v1 - v2)
 
     @property
