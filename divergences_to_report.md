@@ -1,0 +1,39 @@
+# What divergences are worth reporting in the chapter?
+
+## YES
+
+cophenetic
+cophenetic_reverse
+interleaving_X_None
+interleaving_edge_X_None
+interleaving_length_X_None
+bottleneck
+wasserstein
+
+## MAYBE
+
+cophenetic_edge
+cophenetic_reverse_edge
+
+## NO
+
+cophenetic_length
+cophenetic_reverse_length
+degree_dist_wasserstein
+degree_dist_wasserstein_direct
+degree_dist_lp
+degree_seq_lp
+degree_seq_reverse_lp
+point_summary_entropy
+point_summary_max_persistence
+point_summary_homology_class_ratio
+entropy
+betti
+silhouette
+lifespan
+stats
+entropy_emd
+betti_emd
+silhouette_emd
+lifespan_emd
+stats_emd
