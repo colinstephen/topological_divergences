@@ -494,10 +494,10 @@ def compute_and_save_divs_and_corrs(sys_name: str, div_type: str):
 # Interleaving divergence and leaf-to-offset-leaf path length distribution divergence.
 
 # %%
-# compute_and_save_divs_and_corrs("logistic", "mt")
-# compute_and_save_divs_and_corrs("ikeda", "mt")
-# compute_and_save_divs_and_corrs("tinkerbell", "mt")
-# compute_and_save_divs_and_corrs("henon", "mt")
+compute_and_save_divs_and_corrs("logistic", "mt")
+compute_and_save_divs_and_corrs("ikeda", "mt")
+compute_and_save_divs_and_corrs("tinkerbell", "mt")
+compute_and_save_divs_and_corrs("henon", "mt")
 
 # %% [markdown]
 # #### DISCRETE merge tree versions
@@ -506,7 +506,7 @@ def compute_and_save_divs_and_corrs(sys_name: str, div_type: str):
 # compute_and_save_divs_and_corrs("logistic", "dmt")
 # compute_and_save_divs_and_corrs("ikeda", "dmt")
 # compute_and_save_divs_and_corrs("tinkerbell", "dmt")
-compute_and_save_divs_and_corrs("henon", "dmt")
+# compute_and_save_divs_and_corrs("henon", "dmt")
 # test = []
 # for i, tsdmt in enumerate(ikeda_tsdmts):
 #     div = tsdmt.cophenetic_matrix_entropy_divergence

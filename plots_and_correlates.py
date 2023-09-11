@@ -49,6 +49,10 @@ def plot_lce_estimate_and_correlation(
     lce_spearmanr_all = stats.spearmanr(lce_estimate, lce_actual, nan_policy="omit")
     lce_spearmanr_pos = stats.spearmanr(lce_estimate[pos_mask], lce_actual[pos_mask], nan_policy="omit")
 
+    nan_mask = ~np.isnan(lce_estimate)
+    lce_pearsonr_all = stats.pearsonr(lce_estimate[nan_mask], lce_actual[nan_mask])
+    lce_pearsonr_pos = stats.pearsonr(lce_estimate[pos_mask], lce_actual[pos_mask])
+
     if show_plot:
         fig, (ax1, ax2) = plt.subplots(1, 2, sharey=sharey, figsize=(12, 6), dpi=dpi)
 
@@ -112,5 +116,7 @@ def plot_lce_estimate_and_correlation(
 
     return {
         "spearmanr": lce_spearmanr_all,
-        "pos_spearmanr": lce_spearmanr_pos
+        "pos_spearmanr": lce_spearmanr_pos,
+        "pearsonr": lce_pearsonr_all,
+        "pos_pearsonr": lce_pearsonr_pos,
     }

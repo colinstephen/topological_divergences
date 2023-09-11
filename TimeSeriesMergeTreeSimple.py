@@ -271,6 +271,72 @@ def cophenetic_vector(T: nx.Graph) -> np.array:
     return np.array(heights)
 
 
+@lru_cache
+def path_cophenetic_vector(T: nx.Graph) -> np.array:
+    """List of path lengths in T from leaf-pair lcas to root."""
+    lcas = get_lcas(T)
+    root = get_root(T)
+    path_lengths = []
+    T_directed = as_directed_tree(T, root_to_leaf=False)
+    for ((u, v), lca) in lcas:
+        path_node = lca
+        path_length = 0
+        while path_node != root:
+            path_node = list(T_directed.successors(path_node))[0]
+            path_length = path_length + 1
+        path_lengths.append(path_length)
+    return np.array(path_lengths)
+
+@lru_cache
+def in_path_vector(T: nx.Graph) -> np.array:
+    """List of path lengths in T from left of leaf-pair to lca."""
+    lcas = get_lcas(T)
+    path_lengths = []
+    T_directed = as_directed_tree(T, root_to_leaf=False)
+    for ((u, v), lca) in lcas:
+        path_node = u
+        path_length = 0
+        while path_node != lca:
+            path_node = list(T_directed.successors(path_node))[0]
+            path_length = path_length + 1
+        path_lengths.append(path_length)
+    return np.array(path_lengths)
+
+
+@lru_cache
+def out_path_vector(T: nx.Graph) -> np.array:
+    """List of path lengths in T from right of leaf-pair to lca."""
+    lcas = get_lcas(T)
+    path_lengths = []
+    T_directed = as_directed_tree(T, root_to_leaf=False)
+    for ((u, v), lca) in lcas:
+        path_node = v
+        path_length = 0
+        while path_node != lca:
+            path_node = list(T_directed.successors(path_node))[0]
+            path_length = path_length + 1
+        path_lengths.append(path_length)
+    return np.array(path_lengths)
+
+
+def monotonize(ts):
+    # forget intermediate non-critical points and equalize count of minima/maxima
+    new_ts = [ts[0]]
+    N = len(ts)
+    for idx in range(1,N-1):
+        x, y, z = ts[idx-1:idx+2]
+        if (((x<y) and (z<y)) or ((x>y) and (z>y))):
+            # add the local max/min
+            new_ts.append(y)
+    if (len(new_ts) % 2) == 1:
+        new_ts.append(ts[-1])
+
+    is_monotonic = lambda x: (np.all(x[::2]<x[1::2]) or np.all(x[::2]>x[1::2]))
+    assert is_monotonic(new_ts), "new time series has non-critical values, somehow"
+    return new_ts
+
+
+
 class TimeSeriesMergeTree:
     """Define merge tree vectorisations and topological divergences."""
 
@@ -284,6 +350,8 @@ class TimeSeriesMergeTree:
     ) -> None:
         self.time_series = time_series
         self.discrete = discrete
+        if not self.discrete:
+            self.time_series = monotonize(time_series)
         self.MESHES = MESHES
         self.THRESHES = THRESHES
         self.DISTRIBUTION_VECTOR_LENGTH = DISTRIBUTION_VECTOR_LENGTH
@@ -323,33 +391,57 @@ class TimeSeriesMergeTree:
         # dictionary of divergences associated to the merge tree representation
         divs = dict()
 
+        # if self.discrete:
         if True:
             # divergences that require equal leaf counts in the superlevel and sublevel trees
             divs = divs | dict(
                 cophenetic=self.cophenetic_vector_divergence,
                 cophenetic_reverse=self.cophenetic_reverse_vector_divergence,
-                cophenetic_length=self.length_normalised_cophenetic_vector_divergence,
-                cophenetic_reverse_length=self.length_normalised_cophenetic_reverse_vector_divergence,
-                cophenetic_edge=self.edge_normalised_cophenetic_vector_divergence,
-                cophenetic_reverse_edge=self.edge_normalised_cophenetic_reverse_vector_divergence,
+                cophenetic_linf=self.cophenetic_vector_divergence_linf,
+                cophenetic_reverse_linf=self.cophenetic_reverse_vector_divergence_linf,
+                # cophenetic_length_linf=self.length_normalised_cophenetic_vector_divergence_linf,
+                # cophenetic_reverse_length_linf=self.length_normalised_cophenetic_reverse_vector_divergence_linf,
+                # cophenetic_normed_linf=self.cophenetic_normalised_vector_divergence,
+                # cophenetic_reverse_normed_linf=self.cophenetic_reverse_normalised_vector_divergence,
+                # path_cophenetic=self.path_cophenetic_vector_divergence,  ## NO GOOD
+                # path_copehentic_reverse=self.path_cophenetic_reverse_vector_divergence,  ## NO GOOD
+                # path_div_in_top_in_bot=self.path_divergence_in_top_in_bot,  ## NO GOOD
+                # path_div_in_top_out_bot=self.path_divergence_in_top_out_bot,  ## NO GOOD
+                # path_div_in_top_out_bot=self.path_divergence_in_top_out_bot,  ## NO GOOD
+                # path_div_in_top_out_bot_reverse=self.path_divergence_in_top_out_bot_reverse,  ## NO GOOD
+                # cophenetic_length=self.length_normalised_cophenetic_vector_divergence,
+                # cophenetic_reverse_length=self.length_normalised_cophenetic_reverse_vector_divergence,
+                # cophenetic_edge=self.edge_normalised_cophenetic_vector_divergence,
+                # cophenetic_reverse_edge=self.edge_normalised_cophenetic_reverse_vector_divergence,
+            )
+        else:
+            divs = divs | dict(
+                # cophenetic=self.cophenetic_vector_divergence,
+                # cophenetic_reverse=self.cophenetic_reverse_vector_divergence,
+                # cophenetic_linf=self.cophenetic_vector_divergence_linf,
+                # cophenetic_reverse_linf=self.cophenetic_reverse_vector_divergence_linf,
+                # cophenetic_length=self.length_normalised_cophenetic_vector_divergence,
+                # cophenetic_reverse_length=self.length_normalised_cophenetic_reverse_vector_divergence,
+                # cophenetic_edge=self.edge_normalised_cophenetic_vector_divergence,
+                # cophenetic_reverse_edge=self.edge_normalised_cophenetic_reverse_vector_divergence,
             )
 
-        else:
-            # interleavings for PL functions (interleavings for discrete MTs are too slow)
-            meshes = self.MESHES
-            threshes = self.THRESHES
+        # else:
+        #     # interleavings for PL functions (interleavings for discrete MTs are too slow)
+        #     meshes = self.MESHES
+        #     threshes = self.THRESHES
 
-            for mesh in meshes:
-                for thresh in threshes:
+        #     for mesh in meshes:
+        #         for thresh in threshes:
 
-                    if thresh is not None and mesh <= thresh:
-                        continue
+        #             if thresh is not None and mesh <= thresh:
+        #                 continue
 
-                    divs = divs | {
-                        f"interleaving_{mesh}_{thresh}": self.interleaving_divergence(mesh, thresh),
-                        f"interleaving_length_{mesh}_{thresh}": self.length_normalised_interleaving_divergence(mesh, thresh),
-                        f"interleaving_edge_{mesh}_{thresh}": self.edge_normalised_interleaving_divergence(mesh, thresh),
-                    }
+        #             divs = divs | {
+        #                 f"interleaving_{mesh}_{thresh}": self.interleaving_divergence(mesh, thresh),
+        #                 f"interleaving_length_{mesh}_{thresh}": self.length_normalised_interleaving_divergence(mesh, thresh),
+        #                 f"interleaving_edge_{mesh}_{thresh}": self.edge_normalised_interleaving_divergence(mesh, thresh),
+        #             }
 
         return divs
 
@@ -383,7 +475,7 @@ class TimeSeriesMergeTree:
         except Exception as e:
             print("WARNING: interleaving distance raised an exception:", e)
             distance = -1
-        return distance
+        return distance    
 
     def length_normalised_interleaving_divergence(self, mesh, thresh):
         # normalise interleaving by total height of tree
@@ -396,6 +488,54 @@ class TimeSeriesMergeTree:
         n1 = self.merge_tree.number_of_edges()
         n2 = self.superlevel_merge_tree.number_of_edges()
         return self.interleaving_divergence(mesh, thresh) / (n1 + n2)
+    
+    @property
+    def path_divergence_in_top_in_bot(self):
+        v1 = in_path_vector(self.merge_tree)
+        v2 = in_path_vector(make_increasing(self.superlevel_merge_tree))
+        v1 = v1 / self.merge_tree.number_of_edges()
+        v2 = v2 / self.superlevel_merge_tree.number_of_edges()
+        return wasserstein_distance(v1, v2)
+    
+    @property
+    def path_divergence_in_top_in_bot_reverse(self):
+        v1 = in_path_vector(self.merge_tree)
+        v2 = in_path_vector(make_increasing(self.superlevel_merge_tree))[::-1]
+        v1 = v1 / self.merge_tree.number_of_edges()
+        v2 = v2 / self.superlevel_merge_tree.number_of_edges()
+        return wasserstein_distance(v1, v2)
+    
+    @property
+    def path_divergence_in_top_out_bot(self):
+        v1 = in_path_vector(self.merge_tree)
+        v2 = out_path_vector(make_increasing(self.superlevel_merge_tree))
+        v1 = v1 / self.merge_tree.number_of_edges()
+        v2 = v2 / self.superlevel_merge_tree.number_of_edges()
+        return wasserstein_distance(v1, v2)
+    
+    @property
+    def path_divergence_in_top_out_bot_reverse(self):
+        v1 = in_path_vector(self.merge_tree)
+        v2 = out_path_vector(make_increasing(self.superlevel_merge_tree))[::-1]
+        v1 = v1 / self.merge_tree.number_of_edges()
+        v2 = v2 / self.superlevel_merge_tree.number_of_edges()
+        return wasserstein_distance(v1, v2)
+    
+    @property
+    def path_cophenetic_vector_divergence(self):
+        v1 = path_cophenetic_vector(self.merge_tree)
+        v2 = path_cophenetic_vector(make_increasing(self.superlevel_merge_tree))
+        v1 = v1 / np.sum(v1)
+        v2 = v2 / np.sum(v2)
+        return np.linalg.norm(v1 - v2, ord=np.inf)
+
+    @property
+    def path_cophenetic_reverse_vector_divergence(self):
+        v1 = path_cophenetic_vector(self.merge_tree)
+        v2 = path_cophenetic_vector(make_increasing(self.superlevel_merge_tree))
+        v1 = v1 / np.sum(v1)
+        v2 = v2 / np.sum(v2)
+        return np.linalg.norm(v1 - v2, ord=np.inf)
 
     @property
     @lru_cache
@@ -409,6 +549,30 @@ class TimeSeriesMergeTree:
     
     @property
     @lru_cache
+    def cophenetic_normalised_vector_divergence(self):
+        v1 = cophenetic_vector(self.merge_tree)
+        v1 = v1 / np.sum(v1)
+        v2 = cophenetic_vector(make_increasing(self.superlevel_merge_tree))
+        v2 = v2 / np.sum(v2)
+        if len(v1) != len(v2):
+            print("WARNING: cophenetic vectors are different lengths. How?!")
+            return np.nan
+        return np.linalg.norm(v1 - v2, ord=np.inf)
+    
+    @property
+    @lru_cache
+    def cophenetic_reverse_normalised_vector_divergence(self):
+        v1 = cophenetic_vector(self.merge_tree)
+        v1 = v1 / np.sum(v1)
+        v2 = cophenetic_vector(make_increasing(self.superlevel_merge_tree))[::-1]
+        v2 = v2 / np.sum(v2)
+        if len(v1) != len(v2):
+            print("WARNING: cophenetic vectors are different lengths. How?!")
+            return np.nan
+        return np.linalg.norm(v1 - v2, ord=np.inf)
+    
+    @property
+    @lru_cache
     def cophenetic_reverse_vector_divergence(self):
         v1 = cophenetic_vector(self.merge_tree)
         v2 = cophenetic_vector(make_increasing(self.superlevel_merge_tree))[::-1]
@@ -418,11 +582,38 @@ class TimeSeriesMergeTree:
         return np.linalg.norm(v1 - v2)
 
     @property
+    @lru_cache
+    def cophenetic_vector_divergence_linf(self):
+        v1 = cophenetic_vector(self.merge_tree)
+        v2 = cophenetic_vector(make_increasing(self.superlevel_merge_tree))
+        if len(v1) != len(v2):
+            print("WARNING: cophenetic vectors are different lengths. How?!")
+            return np.nan
+        return np.linalg.norm(v1 - v2, ord=np.inf)
+    
+    @property
+    @lru_cache
+    def cophenetic_reverse_vector_divergence_linf(self):
+        v1 = cophenetic_vector(self.merge_tree)
+        v2 = cophenetic_vector(make_increasing(self.superlevel_merge_tree))[::-1]
+        if len(v1) != len(v2):
+            print("WARNING: cophenetic vectors are different lengths. How?!")
+            return np.nan
+        return np.linalg.norm(v1 - v2, ord=np.inf)
+
+    @property
     def length_normalised_cophenetic_vector_divergence(self):
         # normalise divergence by total height of tree
         l1 = sum_of_edge_lengths(self.merge_tree)
         l2 = sum_of_edge_lengths(self.superlevel_merge_tree)
         return self.cophenetic_vector_divergence / (l1 + l2)
+
+    @property
+    def length_normalised_cophenetic_vector_divergence_linf(self):
+        # normalise divergence by total height of tree
+        l1 = sum_of_edge_lengths(self.merge_tree)
+        l2 = sum_of_edge_lengths(self.superlevel_merge_tree)
+        return self.cophenetic_vector_divergence_linf / (l1 + l2)
 
     @property
     def edge_normalised_cophenetic_vector_divergence(self):
@@ -437,6 +628,13 @@ class TimeSeriesMergeTree:
         l1 = sum_of_edge_lengths(self.merge_tree)
         l2 = sum_of_edge_lengths(self.superlevel_merge_tree)
         return self.cophenetic_reverse_vector_divergence / (l1 + l2)
+
+    @property
+    def length_normalised_cophenetic_reverse_vector_divergence_linf(self):
+        # normalise divergence by total height of tree
+        l1 = sum_of_edge_lengths(self.merge_tree)
+        l2 = sum_of_edge_lengths(self.superlevel_merge_tree)
+        return self.cophenetic_reverse_vector_divergence_linf / (l1 + l2)
 
     @property
     def edge_normalised_cophenetic_reverse_vector_divergence(self):
