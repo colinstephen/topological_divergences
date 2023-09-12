@@ -10,6 +10,8 @@ from scipy.stats import wasserstein_distance
 
 
 def rescale_vector(vec, min_val=0, max_val=1):
+    """Scale the given vector so values are in range min_val to max_val."""
+
     scaler = MinMaxScaler((min_val, max_val))
     return scaler.fit_transform(vec.reshape(-1, 1)).flatten()
 
@@ -18,6 +20,7 @@ def rescale_vector(vec, min_val=0, max_val=1):
 @lru_cache
 def tree_lcas(T, leaf_pairs):
     """List of lowest common ancestors in tree T of given pairs of leaves."""
+
     root = get_root(T)
     T_directed = as_directed_tree(T, root_to_leaf=True)
     return list(
@@ -30,6 +33,7 @@ def tree_lcas(T, leaf_pairs):
 @lru_cache
 def tree_offset_leaf_pairs(T, offset=1):
     """List of pairs of leaves in tree T separated by the given offset."""
+
     leaves = tree_leaves(T)
     n = len(leaves)
     return [(leaves[i], leaves[i + offset]) for i in range(n - offset)]
@@ -37,10 +41,10 @@ def tree_offset_leaf_pairs(T, offset=1):
 
 @lru_cache
 def tree_path_length(T, u, v):
-    """Count of edges and sum of edge lengths between u and v in tree T.
+    """Count of edges and sum of edge weights between u and v in tree T.
 
     Assumes u and v are on the same branch.
-    Assumes v is closer to root.
+    Assumes v is closer to root than u.
     """
 
     if u == v:
@@ -58,10 +62,10 @@ def tree_path_length(T, u, v):
         h1 = T_directed.nodes[current_node]["height"]
         h2 = T_directed.nodes[successor_node]["height"]
         if np.all(np.isfinite([h1, h2])):
-            # leaves in discrete merge trees have height -inf
+            # leaves in discrete merge trees might have height -inf
             sum_of_edge_lengths += abs(h2-h1)
         else:
-            # just add the height of the finite node
+            # in which case add the height of the finite node
             sum_of_edge_lengths += abs(max(h1, h2))
         current_node = successor_node
         path_length += 1
@@ -71,7 +75,7 @@ def tree_path_length(T, u, v):
 
 @lru_cache
 def leaf_pair_path_length_vector(T: nx.Graph, offset=1, normalise=True) -> np.array:
-    """Array of path lengths in T from leaf i to leaf i+offset."""
+    """Arrays of path lengths in T from leaf i to leaf i+offset."""
 
     # get the leaf pairs from the offset
     leaf_pairs = tree_offset_leaf_pairs(T, offset=offset)
@@ -95,7 +99,7 @@ def leaf_pair_path_length_vector(T: nx.Graph, offset=1, normalise=True) -> np.ar
 
 @lru_cache
 def leaf_pair_path_cophenetic_vector(T: nx.Graph, offset=1, normalise=True) -> np.array:
-    """List of path lengths in T from lca of leaves (i, i+offset) to root."""
+    """Arrays of path lengths in T from lca of leaves (i, i+offset) to root."""
 
     # get the leaf pairs from the offset
     leaf_pairs = tree_offset_leaf_pairs(T, offset=offset)
@@ -119,8 +123,9 @@ def leaf_pair_path_cophenetic_vector(T: nx.Graph, offset=1, normalise=True) -> n
     return path_lengths.T[0], path_lengths.T[1]
 
 
-def distribution_vec(samples, dim=100, min_val=0, max_val=1, rescale=True):
-    """Vector representing distribution of sample values."""
+def distribution_vec(samples, dim=25, min_val=0, max_val=1, rescale=True):
+    """Vector representing a distribution of sample values."""
+
     if len(samples) == 0:
         return np.zeros(shape=dim)
     if rescale:
@@ -129,10 +134,9 @@ def distribution_vec(samples, dim=100, min_val=0, max_val=1, rescale=True):
     return vec
 
 
-"""Distance between distributions of path lengths between leaf i and i+offset"""
+def get_offset_divergences(offset, tsmt=None, histogram_dim=25):
+    """Measures of difference between offset leaf pairs in a time series merge tree."""
 
-
-def get_offset_divergences(offset, tsmt=None):
     # normalised path length vectors in the tree for the given offset
     plv1 = leaf_pair_path_length_vector(tsmt.merge_tree, offset=offset)[0]
     plv2 = leaf_pair_path_length_vector(
@@ -152,10 +156,10 @@ def get_offset_divergences(offset, tsmt=None):
     pwv_linf = 0 if len(pwv1) == 0 else np.linalg.norm(pwv1 - pwv2, ord=np.inf)
 
     # distributions of values in the path length vectors
-    plv1_hist = distribution_vec(plv1)
-    plv2_hist = distribution_vec(plv2)
-    pwv1_hist = distribution_vec(pwv1)
-    pwv2_hist = distribution_vec(pwv2)
+    plv1_hist = distribution_vec(plv1, dim=histogram_dim)
+    plv2_hist = distribution_vec(plv2, dim=histogram_dim)
+    pwv1_hist = distribution_vec(pwv1, dim=histogram_dim)
+    pwv2_hist = distribution_vec(pwv2, dim=histogram_dim)
 
     # wasserstein and lp distances between path length distributions
     plv_hist_w = 0 if (sum(plv1)*sum(plv2) == 0) else wasserstein_distance(plv1, plv2)
@@ -186,10 +190,10 @@ def get_offset_divergences(offset, tsmt=None):
     cowv_linf = 0 if len(cowv1) == 0 else np.linalg.norm(cowv1 - cowv2, ord=np.inf)
 
     # distributions of values in the path length vectors
-    colv1_hist = distribution_vec(colv1)
-    colv2_hist = distribution_vec(colv2)
-    cowv1_hist = distribution_vec(cowv1)
-    cowv2_hist = distribution_vec(cowv2)
+    colv1_hist = distribution_vec(colv1, dim=histogram_dim)
+    colv2_hist = distribution_vec(colv2, dim=histogram_dim)
+    cowv1_hist = distribution_vec(cowv1, dim=histogram_dim)
+    cowv2_hist = distribution_vec(cowv2, dim=histogram_dim)
 
     # wasserstein and lp distances between path length distributions
     colv_hist_w = 0 if (sum(colv1)*sum(colv2) == 0) else wasserstein_distance(colv1, colv2)
