@@ -15,6 +15,7 @@ def rescale_vector(vec, min_val=0, max_val=1):
 
 
 
+@lru_cache
 def tree_lcas(T, leaf_pairs):
     """List of lowest common ancestors in tree T of given pairs of leaves."""
     root = get_root(T)
@@ -26,6 +27,7 @@ def tree_lcas(T, leaf_pairs):
     )
 
 
+@lru_cache
 def tree_offset_leaf_pairs(T, offset=1):
     """List of pairs of leaves in tree T separated by the given offset."""
     leaves = tree_leaves(T)
@@ -33,15 +35,16 @@ def tree_offset_leaf_pairs(T, offset=1):
     return [(leaves[i], leaves[i + offset]) for i in range(n - offset)]
 
 
+@lru_cache
 def tree_path_length(T, u, v):
-    """Count of edges between u and v in tree T.
+    """Count of edges and sum of edge lengths between u and v in tree T.
 
     Assumes u and v are on the same branch.
     Assumes v is closer to root.
     """
 
     if u == v:
-        return 0
+        return 0, 0
 
     # make the tree easier to traverse
     T_directed = as_directed_tree(T, root_to_leaf=False)
@@ -49,11 +52,16 @@ def tree_path_length(T, u, v):
     # iterate towards root from u along successor nodes
     current_node = u
     path_length = 0
+    sum_of_edge_lengths = 0
     while current_node != v:
-        current_node = list(T_directed.successors(current_node))[0]
+        successor_node = list(T_directed.successors(current_node))[0]
+        h1 = T_directed.nodes[current_node]["height"]
+        h2 = T_directed.nodes[successor_node]["height"]
+        sum_of_edge_lengths += abs(h2-h1)
+        current_node = successor_node
         path_length += 1
 
-    return path_length
+    return path_length, sum_of_edge_lengths
 
 
 def leaf_pair_path_length_vector(T: nx.Graph, offset=1, normalise=True) -> np.array:
@@ -66,19 +74,17 @@ def leaf_pair_path_length_vector(T: nx.Graph, offset=1, normalise=True) -> np.ar
     lcas = tree_lcas(T, tuple(leaf_pairs))
 
     # use the lcas to find the leaf-to-leaf path lengths
-    path_lengths = []
-    for (u, v), lca in lcas:
-        length = 0
-        length += tree_path_length(T, u, lca)
-        length += tree_path_length(T, v, lca)
-        path_lengths.append(length)
+    # use column 1 for the edge count, column 2 for the sum of edge lengths
+    path_lengths = np.zeros(shape=(len(lcas), 2))
+    for i, ((u, v), lca) in enumerate(lcas):
+        path_lengths[i] += tree_path_length(T, u, lca)
+        path_lengths[i] += tree_path_length(T, v, lca)
 
     # Normalise if required
-    path_lengths = np.array(path_lengths)
     if normalise:
-        path_lengths = path_lengths / np.sum(path_lengths)
+        path_lengths = path_lengths / np.sum(path_lengths, axis=0)
 
-    return path_lengths
+    return path_lengths[:,0]
 
 
 def leaf_pair_path_cophenetic_vector(T: nx.Graph, offset=1, normalise=True) -> np.array:
@@ -92,17 +98,18 @@ def leaf_pair_path_cophenetic_vector(T: nx.Graph, offset=1, normalise=True) -> n
     root = get_root(T)
 
     # use the lcas to find the cophenetic distances
-    path_lengths = []
-    for (u, v), lca in lcas:
-        length = tree_path_length(T, lca, root)
-        path_lengths.append(length)
+    path_lengths = np.zeros(shape=(len(lcas), 2))
+    for i, ((u, v), lca) in enumerate(lcas):
+        path_lengths[i] += tree_path_length(T, lca, root)
 
     # Normalise if required
-    path_lengths = np.array(path_lengths)
-    if normalise and (np.sum(path_lengths) > 0):
-        path_lengths = path_lengths / np.sum(path_lengths)
+    edge_sum, weight_sum = np.sum(path_lengths, axis=0)
+    if normalise and (edge_sum > 0):
+        path_lengths[:,0] /= edge_sum
+    if normalise and (weight_sum > 0):
+        path_lengths[:,1] /= weight_sum
 
-    return path_lengths
+    return path_lengths[:,0]
 
 
 def distribution_vec(samples, dim=100, min_val=0, max_val=1, rescale=True):
