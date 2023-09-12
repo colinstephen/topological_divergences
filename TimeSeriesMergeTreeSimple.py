@@ -138,6 +138,7 @@ def superlevel_merge_tree_discrete(array):
     return G
 
 
+@lru_cache
 def make_increasing(T):
     """Alter tree node heights so leaves are minimal and root is maximal."""
 

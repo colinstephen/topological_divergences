@@ -57,7 +57,12 @@ def tree_path_length(T, u, v):
         successor_node = list(T_directed.successors(current_node))[0]
         h1 = T_directed.nodes[current_node]["height"]
         h2 = T_directed.nodes[successor_node]["height"]
-        sum_of_edge_lengths += abs(h2-h1)
+        if np.all(np.isfinite([h1, h2])):
+            # leaves in discrete merge trees have height -inf
+            sum_of_edge_lengths += abs(h2-h1)
+        else:
+            # just add the height of the finite node
+            sum_of_edge_lengths += abs(max(h1, h2))
         current_node = successor_node
         path_length += 1
 
@@ -167,21 +172,34 @@ def get_offset_divergences(offset, tsmt=None):
     colv2 = leaf_pair_path_cophenetic_vector(
         make_increasing(tsmt.superlevel_merge_tree), offset=offset
     )[0]
+    cowv1 = leaf_pair_path_cophenetic_vector(tsmt.merge_tree, offset=offset)[1]
+    cowv2 = leaf_pair_path_cophenetic_vector(
+        make_increasing(tsmt.superlevel_merge_tree), offset=offset
+    )[1]
 
     # lp distances between path length vectors
     colv_l1 = np.linalg.norm(colv1 - colv2, ord=1)
     colv_l2 = np.linalg.norm(colv1 - colv2, ord=2)
     colv_linf = 0 if len(colv1) == 0 else np.linalg.norm(colv1 - colv2, ord=np.inf)
+    cowv_l1 = np.linalg.norm(cowv1 - cowv2, ord=1)
+    cowv_l2 = np.linalg.norm(cowv1 - cowv2, ord=2)
+    cowv_linf = 0 if len(cowv1) == 0 else np.linalg.norm(cowv1 - cowv2, ord=np.inf)
 
     # distributions of values in the path length vectors
     colv1_hist = distribution_vec(colv1)
     colv2_hist = distribution_vec(colv2)
+    cowv1_hist = distribution_vec(cowv1)
+    cowv2_hist = distribution_vec(cowv2)
 
     # wasserstein and lp distances between path length distributions
     colv_hist_w = 0 if (sum(colv1)*sum(colv2) == 0) else wasserstein_distance(colv1, colv2)
     colv_hist_l1 = np.linalg.norm(colv1_hist - colv2_hist, ord=1)
     colv_hist_l2 = np.linalg.norm(colv1_hist - colv2_hist, ord=2)
     colv_hist_linf = 0 if len(colv1_hist) == 0 else np.linalg.norm(colv1_hist - colv2_hist, ord=np.inf)
+    cowv_hist_w = 0 if (sum(cowv1)*sum(cowv2) == 0) else wasserstein_distance(cowv1, cowv2)
+    cowv_hist_l1 = np.linalg.norm(cowv1_hist - cowv2_hist, ord=1)
+    cowv_hist_l2 = np.linalg.norm(cowv1_hist - cowv2_hist, ord=2)
+    cowv_hist_linf = 0 if len(cowv1_hist) == 0 else np.linalg.norm(cowv1_hist - cowv2_hist, ord=np.inf)
 
     div_values = [
         plv_l1,
@@ -198,6 +216,20 @@ def get_offset_divergences(offset, tsmt=None):
         colv_hist_l1,
         colv_hist_l2,
         colv_hist_linf,
+        pwv_l1,
+        pwv_l2,
+        pwv_linf,
+        pwv_hist_w,
+        pwv_hist_l1,
+        pwv_hist_l2,
+        pwv_hist_linf,
+        cowv_l1,
+        cowv_l2,
+        cowv_linf,
+        cowv_hist_w,
+        cowv_hist_l1,
+        cowv_hist_l2,
+        cowv_hist_linf,
     ]
 
     return div_values
@@ -217,4 +249,18 @@ div_names = [
     "cophenetic_length_hist_l1",
     "cophenetic_length_hist_l2",
     "cophenetic_length_hist_linf",
+    "path_weight_l1",
+    "path_weight_l2",
+    "path_weight_linf",
+    "path_weight_hist_w",
+    "path_weight_hist_l1",
+    "path_weight_hist_l2",
+    "path_weight_hist_linf",
+    "cophenetic_weight_l1",
+    "cophenetic_weight_l2",
+    "cophenetic_weight_linf",
+    "cophenetic_weight_hist_w",
+    "cophenetic_weight_hist_l1",
+    "cophenetic_weight_hist_l2",
+    "cophenetic_weight_hist_linf",
 ]
