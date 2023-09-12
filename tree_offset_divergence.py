@@ -84,7 +84,7 @@ def leaf_pair_path_length_vector(T: nx.Graph, offset=1, normalise=True) -> np.ar
     if normalise:
         path_lengths = path_lengths / np.sum(path_lengths, axis=0)
 
-    return path_lengths[:,0]
+    return path_lengths.T[0]
 
 
 def leaf_pair_path_cophenetic_vector(T: nx.Graph, offset=1, normalise=True) -> np.array:
@@ -109,7 +109,7 @@ def leaf_pair_path_cophenetic_vector(T: nx.Graph, offset=1, normalise=True) -> n
     if normalise and (weight_sum > 0):
         path_lengths[:,1] /= weight_sum
 
-    return path_lengths[:,0]
+    return path_lengths.T[0]
 
 
 def distribution_vec(samples, dim=100, min_val=0, max_val=1, rescale=True):
