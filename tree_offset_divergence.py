@@ -64,6 +64,7 @@ def tree_path_length(T, u, v):
     return path_length, sum_of_edge_lengths
 
 
+@lru_cache
 def leaf_pair_path_length_vector(T: nx.Graph, offset=1, normalise=True) -> np.array:
     """Array of path lengths in T from leaf i to leaf i+offset."""
 
@@ -84,9 +85,10 @@ def leaf_pair_path_length_vector(T: nx.Graph, offset=1, normalise=True) -> np.ar
     if normalise:
         path_lengths = path_lengths / np.sum(path_lengths, axis=0)
 
-    return path_lengths.T[0]
+    return path_lengths.T[0], path_lengths.T[1]
 
 
+@lru_cache
 def leaf_pair_path_cophenetic_vector(T: nx.Graph, offset=1, normalise=True) -> np.array:
     """List of path lengths in T from lca of leaves (i, i+offset) to root."""
 
@@ -109,7 +111,7 @@ def leaf_pair_path_cophenetic_vector(T: nx.Graph, offset=1, normalise=True) -> n
     if normalise and (weight_sum > 0):
         path_lengths[:,1] /= weight_sum
 
-    return path_lengths.T[0]
+    return path_lengths.T[0], path_lengths.T[1]
 
 
 def distribution_vec(samples, dim=100, min_val=0, max_val=1, rescale=True):
@@ -127,46 +129,59 @@ def distribution_vec(samples, dim=100, min_val=0, max_val=1, rescale=True):
 
 def get_offset_divergences(offset, tsmt=None):
     # normalised path length vectors in the tree for the given offset
-    plv1 = leaf_pair_path_length_vector(tsmt.merge_tree, offset=offset)
+    plv1 = leaf_pair_path_length_vector(tsmt.merge_tree, offset=offset)[0]
     plv2 = leaf_pair_path_length_vector(
         make_increasing(tsmt.superlevel_merge_tree), offset=offset
-    )
+    )[0]
+    pwv1 = leaf_pair_path_length_vector(tsmt.merge_tree, offset=offset)[1]
+    pwv2 = leaf_pair_path_length_vector(
+        make_increasing(tsmt.superlevel_merge_tree), offset=offset
+    )[1]
 
     # lp distances between path length vectors
     plv_l1 = np.linalg.norm(plv1 - plv2, ord=1)
     plv_l2 = np.linalg.norm(plv1 - plv2, ord=2)
     plv_linf = 0 if len(plv1) == 0 else np.linalg.norm(plv1 - plv2, ord=np.inf)
+    pwv_l1 = np.linalg.norm(pwv1 - pwv2, ord=1)
+    pwv_l2 = np.linalg.norm(pwv1 - pwv2, ord=2)
+    pwv_linf = 0 if len(pwv1) == 0 else np.linalg.norm(pwv1 - pwv2, ord=np.inf)
 
     # distributions of values in the path length vectors
     plv1_hist = distribution_vec(plv1)
     plv2_hist = distribution_vec(plv2)
+    pwv1_hist = distribution_vec(pwv1)
+    pwv2_hist = distribution_vec(pwv2)
 
     # wasserstein and lp distances between path length distributions
     plv_hist_w = 0 if (sum(plv1)*sum(plv2) == 0) else wasserstein_distance(plv1, plv2)
     plv_hist_l1 = np.linalg.norm(plv1_hist - plv2_hist, ord=1)
     plv_hist_l2 = np.linalg.norm(plv1_hist - plv2_hist, ord=2)
     plv_hist_linf = 0 if len(plv1_hist) == 0 else np.linalg.norm(plv1_hist - plv2_hist, ord=np.inf)
+    pwv_hist_w = 0 if (sum(pwv1)*sum(pwv2) == 0) else wasserstein_distance(pwv1, pwv2)
+    pwv_hist_l1 = np.linalg.norm(pwv1_hist - pwv2_hist, ord=1)
+    pwv_hist_l2 = np.linalg.norm(pwv1_hist - pwv2_hist, ord=2)
+    pwv_hist_linf = 0 if len(pwv1_hist) == 0 else np.linalg.norm(pwv1_hist - pwv2_hist, ord=np.inf)
 
     # normalised cophenetic vectors in the tree for the given offset
-    cov1 = leaf_pair_path_cophenetic_vector(tsmt.merge_tree, offset=offset)
-    cov2 = leaf_pair_path_cophenetic_vector(
+    colv1 = leaf_pair_path_cophenetic_vector(tsmt.merge_tree, offset=offset)[0]
+    colv2 = leaf_pair_path_cophenetic_vector(
         make_increasing(tsmt.superlevel_merge_tree), offset=offset
-    )
+    )[0]
 
     # lp distances between path length vectors
-    cov_l1 = np.linalg.norm(cov1 - cov2, ord=1)
-    cov_l2 = np.linalg.norm(cov1 - cov2, ord=2)
-    cov_linf = 0 if len(cov1) == 0 else np.linalg.norm(cov1 - cov2, ord=np.inf)
+    colv_l1 = np.linalg.norm(colv1 - colv2, ord=1)
+    colv_l2 = np.linalg.norm(colv1 - colv2, ord=2)
+    colv_linf = 0 if len(colv1) == 0 else np.linalg.norm(colv1 - colv2, ord=np.inf)
 
     # distributions of values in the path length vectors
-    cov1_hist = distribution_vec(cov1)
-    cov2_hist = distribution_vec(cov2)
+    colv1_hist = distribution_vec(colv1)
+    colv2_hist = distribution_vec(colv2)
 
     # wasserstein and lp distances between path length distributions
-    cov_hist_w = 0 if (sum(cov1)*sum(cov2) == 0) else wasserstein_distance(cov1, cov2)
-    cov_hist_l1 = np.linalg.norm(cov1_hist - cov2_hist, ord=1)
-    cov_hist_l2 = np.linalg.norm(cov1_hist - cov2_hist, ord=2)
-    cov_hist_linf = 0 if len(cov1_hist) == 0 else np.linalg.norm(cov1_hist - cov2_hist, ord=np.inf)
+    colv_hist_w = 0 if (sum(colv1)*sum(colv2) == 0) else wasserstein_distance(colv1, colv2)
+    colv_hist_l1 = np.linalg.norm(colv1_hist - colv2_hist, ord=1)
+    colv_hist_l2 = np.linalg.norm(colv1_hist - colv2_hist, ord=2)
+    colv_hist_linf = 0 if len(colv1_hist) == 0 else np.linalg.norm(colv1_hist - colv2_hist, ord=np.inf)
 
     div_values = [
         plv_l1,
@@ -176,13 +191,13 @@ def get_offset_divergences(offset, tsmt=None):
         plv_hist_l1,
         plv_hist_l2,
         plv_hist_linf,
-        cov_l1,
-        cov_l2,
-        cov_linf,
-        cov_hist_w,
-        cov_hist_l1,
-        cov_hist_l2,
-        cov_hist_linf,
+        colv_l1,
+        colv_l2,
+        colv_linf,
+        colv_hist_w,
+        colv_hist_l1,
+        colv_hist_l2,
+        colv_hist_linf,
     ]
 
     return div_values
@@ -195,11 +210,11 @@ div_names = [
     "path_length_hist_l1",
     "path_length_hist_l2",
     "path_length_hist_linf",
-    "cophenetic_l1",
-    "cophenetic_l2",
-    "cophenetic_linf",
-    "cophenetic_hist_w",
-    "cophenetic_hist_l1",
-    "cophenetic_hist_l2",
-    "cophenetic_hist_linf",
+    "cophenetic_length_l1",
+    "cophenetic_length_l2",
+    "cophenetic_length_linf",
+    "cophenetic_length_hist_w",
+    "cophenetic_length_hist_l1",
+    "cophenetic_length_hist_l2",
+    "cophenetic_length_hist_linf",
 ]
