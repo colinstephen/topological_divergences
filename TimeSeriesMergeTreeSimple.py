@@ -19,7 +19,8 @@ randomState = RandomState(MT19937(SeedSequence(SEED)))
 def perturb_array(array, epsilon=1e-10):
     """Perturb array values slightly to make them distinct."""
     noise = randomState.uniform(-epsilon, epsilon, len(array))
-    return np.array(array) + noise
+    perturbed = np.array(array) + noise
+    return perturbed
 
 
 def merge_tree(array):
@@ -151,6 +152,7 @@ def make_increasing(T):
     return tree
 
 
+@lru_cache
 def as_directed_tree(T: nx.Graph, root_to_leaf=False) -> nx.DiGraph:
     """Copy of T that is a DiGraph
     
@@ -184,7 +186,7 @@ def dmt_merge_tree(T):
     return DMTMergeTree(tree=tree, height=height)
 
 
-def get_leaves(T, order_by_attr="idx"):
+def tree_leaves(T, order_by_attr="idx"):
     """Get a list of degree-1 nodes."""
     leaves = [node for node, degree in T.degree() if degree == 1]
     if order_by_attr is not None:
@@ -197,6 +199,14 @@ def get_root(T: nx.Graph):
     for node, degree in T.degree():
         if degree == 2:
             return node
+    # No degree 2 node, for some reason. Return the max height node.
+    max_node = None
+    max_node_height = -np.inf
+    for node, data in T.nodes(data=True):
+        if data["height"] > max_node_height:
+            max_node = node
+            max_node_height = data["height"]
+    return max_node
 
 
 def get_heights(T: nx.Graph):
@@ -244,7 +254,7 @@ def get_idx_pairs(n: int) -> list[tuple]:
 
 def get_leaf_pairs(T: nx.Graph) -> list:
     """List of pairs of leaves in T."""
-    leaves = get_leaves(T)
+    leaves = tree_leaves(T)
     n = len(leaves)
     idx_pairs = get_idx_pairs(n)
     leaf_pairs = [(leaves[i], leaves[j]) for i,j in idx_pairs]
