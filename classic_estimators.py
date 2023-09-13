@@ -51,10 +51,10 @@ def safe_lyap(func):
     return wrapper
 
 
-def get_classical_estimates(time_series):
+def get_classic_estimates(time_series):
     rosenstein_estimate = safe_lyap(lyap_r)(time_series)
     eckmann_estimate = max(safe_lyap(lyap_e)(time_series))
     kantz_estimate = safe_lyap(kantz_estimator)(robjects.FloatVector(time_series))
     return np.array([rosenstein_estimate, eckmann_estimate, kantz_estimate])
 
-clasical_names = ["Rosenstein", "Eckmann", "Kantz"]
+classic_names = ["Rosenstein", "Eckmann", "Kantz"]
