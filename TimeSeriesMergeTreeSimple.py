@@ -16,14 +16,29 @@ SEED = 123
 randomState = RandomState(MT19937(SeedSequence(SEED)))
 
 
-def perturb_array(array, epsilon=1e-10):
+def perturb_array(arr, epsilon=1e-10):
     """Perturb array values slightly to make them distinct."""
-    noise = randomState.uniform(-epsilon, epsilon, len(array))
-    perturbed = np.array(array) + noise
+
+    arr = np.array(arr)
+
+    # get number of finite elements
+    finite_array = arr[np.isfinite(arr)]
+    num_finite = len(finite_array)
+
+    # initialise a perturbed array and its finite elements
+    perturbed = arr
+    finite_perturbed = finite_array
+
+    while len(np.unique(finite_perturbed)) != num_finite:
+
+        noise = np.random.uniform(-epsilon, epsilon, len(arr))
+        perturbed = np.array(arr) + noise
+        finite_perturbed = perturbed[np.isfinite(perturbed)]
+
     return perturbed
 
 
-def merge_tree(array):
+def merge_tree(arr):
     """Sublevel set merge tree of given time series array.
 
     This computes the merge tree of the piecewise linear interpolation of
@@ -33,11 +48,11 @@ def merge_tree(array):
     `idx`. Height gives the filtration value at the node and `idx` gives the
     corresponding index of the node in `array`.
     """
-    array = perturb_array(array)
+    arr = perturb_array(arr)
 
     # Sort the array but keep original indices
-    sorted_indices = sorted(range(len(array)), key=lambda k: array[k])
-    sorted_values = [array[i] for i in sorted_indices]
+    sorted_indices = sorted(range(len(arr)), key=lambda k: arr[k])
+    sorted_values = [arr[i] for i in sorted_indices]
 
     # Initialize structures
     G = nx.Graph()
@@ -82,7 +97,7 @@ def merge_tree(array):
     return G
 
 
-def superlevel_merge_tree(array):
+def superlevel_merge_tree(arr):
     """Superlevel set merge tree of given time series array.
 
     This computes the superlevel merge tree of the piecewise linear
@@ -93,7 +108,7 @@ def superlevel_merge_tree(array):
     """
 
     # Convert the problem to sublevel sets by negating the array
-    negated_array = [-val for val in array]
+    negated_array = [-val for val in arr]
 
     # Use the sublevel merge tree function
     G = merge_tree(negated_array)
@@ -105,7 +120,7 @@ def superlevel_merge_tree(array):
     return G
 
 
-def merge_tree_discrete(array):
+def merge_tree_discrete(arr):
     """Sublevel set discrete merge tree of given time series array.
 
     This computes the merge tree over a chain graph whose edges are weighted
@@ -115,13 +130,13 @@ def merge_tree_discrete(array):
     the regular merge tree. This is equivalent.
     """
     new_array = [-np.inf]
-    for x in array:
+    for x in arr:
         new_array.append(x)
         new_array.append(-np.inf)
     return merge_tree(new_array)
 
 
-def superlevel_merge_tree_discrete(array):
+def superlevel_merge_tree_discrete(arr):
     """Superlevel set discrete merge tree of given time series array.
 
     This computes the superlevel merge tree over a chain graph whose edges are
@@ -131,7 +146,7 @@ def superlevel_merge_tree_discrete(array):
     Implementation negates the array, computes the sublevel discrete merge tree,
     then negates the resulting node heights.
     """
-    negated_array = [-val for val in array]
+    negated_array = [-val for val in arr]
     G = merge_tree_discrete(negated_array)
     for _, data in G.nodes(data=True):
         data["height"] = -data["height"]
@@ -359,7 +374,7 @@ class TimeSeriesMergeTree:
         THRESHES=[None, 0.1],
         DISTRIBUTION_VECTOR_LENGTH=100,
     ) -> None:
-        self.time_series = time_series
+        self.time_series = np.array(time_series)
         self.discrete = discrete
         if not self.discrete:
             self.time_series = monotonize(time_series)
