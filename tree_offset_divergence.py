@@ -80,6 +80,9 @@ def leaf_pair_path_length_vector(T: nx.Graph, offset=1, normalise=True) -> np.ar
     # get the leaf pairs from the offset
     leaf_pairs = tree_offset_leaf_pairs(T, offset=offset)
 
+    if len(leaf_pairs) < 1:
+        return np.array([]), np.array([])
+
     # find the lowest common ancestors
     lcas = tree_lcas(T, tuple(leaf_pairs))
 
@@ -103,6 +106,9 @@ def leaf_pair_path_cophenetic_vector(T: nx.Graph, offset=1, normalise=True) -> n
 
     # get the leaf pairs from the offset
     leaf_pairs = tree_offset_leaf_pairs(T, offset=offset)
+
+    if len(leaf_pairs) < 1:
+        return np.array([]), np.array([])
 
     # find the lowest common ancestors and root
     lcas = tree_lcas(T, tuple(leaf_pairs))
@@ -138,14 +144,25 @@ def get_offset_divergences(offset, tsmt=None, histogram_dim=25):
     """Measures of difference between offset leaf pairs in a time series merge tree."""
 
     # normalised path length vectors in the tree for the given offset
-    plv1 = leaf_pair_path_length_vector(tsmt.merge_tree, offset=offset)[0]
-    plv2 = leaf_pair_path_length_vector(
-        make_increasing(tsmt.superlevel_merge_tree), offset=offset
-    )[0]
-    pwv1 = leaf_pair_path_length_vector(tsmt.merge_tree, offset=offset)[1]
-    pwv2 = leaf_pair_path_length_vector(
-        make_increasing(tsmt.superlevel_merge_tree), offset=offset
-    )[1]
+    try:
+        plv1 = leaf_pair_path_length_vector(tsmt.merge_tree, offset=offset)[0]
+        plv2 = leaf_pair_path_length_vector(
+            make_increasing(tsmt.superlevel_merge_tree), offset=offset
+        )[0]
+        pwv1 = leaf_pair_path_length_vector(tsmt.merge_tree, offset=offset)[1]
+        pwv2 = leaf_pair_path_length_vector(
+            make_increasing(tsmt.superlevel_merge_tree), offset=offset
+        )[1]
+    except Exception as err:
+        # Failed for this merge tree. Skip it.
+        print("ERROR: could not compute vector for some reason.")
+        print(offset, tsmt.time_series, histogram_dim)
+        message = getattr(err, "message", repr(err))
+        print(message)
+        return np.zeros(40)
+
+    if len(plv1) < 1 or len(plv2) < 1 or len(pwv1) < 1 or len(pwv2) < 1:
+        return np.zeros(40)
 
     # lp distances between path length vectors
     plv_l1 = np.linalg.norm(plv1 - plv2, ord=1)
@@ -260,7 +277,7 @@ def get_offset_divergences(offset, tsmt=None, histogram_dim=25):
         cowv_hist_linf,
     ]
 
-    return div_values
+    return np.array(div_values)
 
 div_names = [
     "path_length_l1",
