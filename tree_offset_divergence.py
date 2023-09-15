@@ -154,6 +154,12 @@ def get_offset_divergences(offset, tsmt=None, histogram_dim=25):
     pwv_l1 = np.linalg.norm(pwv1 - pwv2, ord=1)
     pwv_l2 = np.linalg.norm(pwv1 - pwv2, ord=2)
     pwv_linf = 0 if len(pwv1) == 0 else np.linalg.norm(pwv1 - pwv2, ord=np.inf)
+    plv_l1_rev = np.linalg.norm(plv1 - plv2[::-1], ord=1)
+    plv_l2_rev = np.linalg.norm(plv1 - plv2[::-1], ord=2)
+    plv_linf_rev = 0 if len(plv1) == 0 else np.linalg.norm(plv1 - plv2[::-1], ord=np.inf)
+    pwv_l1_rev = np.linalg.norm(pwv1 - pwv2[::-1], ord=1)
+    pwv_l2_rev = np.linalg.norm(pwv1 - pwv2[::-1], ord=2)
+    pwv_linf_rev = 0 if len(pwv1) == 0 else np.linalg.norm(pwv1 - pwv2[::-1], ord=np.inf)
 
     # distributions of values in the path length vectors
     plv1_hist = distribution_vec(plv1, dim=histogram_dim)
@@ -188,6 +194,12 @@ def get_offset_divergences(offset, tsmt=None, histogram_dim=25):
     cowv_l1 = np.linalg.norm(cowv1 - cowv2, ord=1)
     cowv_l2 = np.linalg.norm(cowv1 - cowv2, ord=2)
     cowv_linf = 0 if len(cowv1) == 0 else np.linalg.norm(cowv1 - cowv2, ord=np.inf)
+    colv_l1_rev = np.linalg.norm(colv1 - colv2[::-1], ord=1)
+    colv_l2_rev = np.linalg.norm(colv1 - colv2[::-1], ord=2)
+    colv_linf_rev = 0 if len(colv1) == 0 else np.linalg.norm(colv1 - colv2[::-1], ord=np.inf)
+    cowv_l1_rev = np.linalg.norm(cowv1 - cowv2[::-1], ord=1)
+    cowv_l2_rev = np.linalg.norm(cowv1 - cowv2[::-1], ord=2)
+    cowv_linf_rev = 0 if len(cowv1) == 0 else np.linalg.norm(cowv1 - cowv2[::-1], ord=np.inf)
 
     # distributions of values in the path length vectors
     colv1_hist = distribution_vec(colv1, dim=histogram_dim)
@@ -209,6 +221,9 @@ def get_offset_divergences(offset, tsmt=None, histogram_dim=25):
         plv_l1,
         plv_l2,
         plv_linf,
+        plv_l1_rev,
+        plv_l2_rev,
+        plv_linf_rev,
         plv_hist_w,
         plv_hist_l1,
         plv_hist_l2,
@@ -216,6 +231,9 @@ def get_offset_divergences(offset, tsmt=None, histogram_dim=25):
         colv_l1,
         colv_l2,
         colv_linf,
+        colv_l1_rev,
+        colv_l2_rev,
+        colv_linf_rev,
         colv_hist_w,
         colv_hist_l1,
         colv_hist_l2,
@@ -223,6 +241,9 @@ def get_offset_divergences(offset, tsmt=None, histogram_dim=25):
         pwv_l1,
         pwv_l2,
         pwv_linf,
+        pwv_l1_rev,
+        pwv_l2_rev,
+        pwv_linf_rev,
         pwv_hist_w,
         pwv_hist_l1,
         pwv_hist_l2,
@@ -230,6 +251,9 @@ def get_offset_divergences(offset, tsmt=None, histogram_dim=25):
         cowv_l1,
         cowv_l2,
         cowv_linf,
+        cowv_l1_rev,
+        cowv_l2_rev,
+        cowv_linf_rev,
         cowv_hist_w,
         cowv_hist_l1,
         cowv_hist_l2,
@@ -242,6 +266,9 @@ div_names = [
     "path_length_l1",
     "path_length_l2",
     "path_length_linf",
+    "path_length_l1_rev",
+    "path_length_l2_rev",
+    "path_length_linf_rev",
     "path_length_hist_w",
     "path_length_hist_l1",
     "path_length_hist_l2",
@@ -249,6 +276,9 @@ div_names = [
     "cophenetic_length_l1",
     "cophenetic_length_l2",
     "cophenetic_length_linf",
+    "cophenetic_length_l1_rev",
+    "cophenetic_length_l2_rev",
+    "cophenetic_length_linf_rev",
     "cophenetic_length_hist_w",
     "cophenetic_length_hist_l1",
     "cophenetic_length_hist_l2",
@@ -256,6 +286,9 @@ div_names = [
     "path_weight_l1",
     "path_weight_l2",
     "path_weight_linf",
+    "path_weight_l1_rev",
+    "path_weight_l2_rev",
+    "path_weight_linf_rev",
     "path_weight_hist_w",
     "path_weight_hist_l1",
     "path_weight_hist_l2",
@@ -263,6 +296,9 @@ div_names = [
     "cophenetic_weight_l1",
     "cophenetic_weight_l2",
     "cophenetic_weight_linf",
+    "cophenetic_weight_l1_rev",
+    "cophenetic_weight_l2_rev",
+    "cophenetic_weight_linf_rev",
     "cophenetic_weight_hist_w",
     "cophenetic_weight_hist_l1",
     "cophenetic_weight_hist_l2",
