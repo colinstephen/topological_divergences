@@ -39,52 +39,66 @@ def tree_offset_leaf_pairs(T, offset=1):
     return [(leaves[i], leaves[i + offset]) for i in range(n - offset)]
 
 
-@lru_cache
+# @lru_cache
 def tree_path_length(T, u, v):
     """Count of edges and sum of edge weights between u and v in tree T.
 
     Assumes u and v are on the same branch.
     Assumes v is closer to root than u.
+    Uses a bit of custom caching on the tree.
     """
 
-    if u == v:
-        return 0, 0
+    tree_path_length_attribute = getattr(T, "tree_path_lengths", None)
 
-    # make the tree easier to traverse
-    T_directed = as_directed_tree(T, root_to_leaf=False)
+    if tree_path_length_attribute is None:
+        tree_path_length_attribute = dict()
+        setattr(T, "tree_path_length", tree_path_length_attribute)
 
-    # iterate towards root from u along successor nodes
-    current_node = u
-    path_length = 0
-    sum_of_edge_lengths = 0
-    while current_node != v:
-        successor_node = list(T_directed.successors(current_node))[0]
-        h1 = T_directed.nodes[current_node]["height"]
-        h2 = T_directed.nodes[successor_node]["height"]
-        if np.all(np.isfinite([h1, h2])):
-            # leaves in discrete merge trees might have height -inf
-            sum_of_edge_lengths += abs(h2-h1)
+    cached_result = tree_path_length_attribute.get((u,v), None)
+
+    if cached_result is None:
+
+        if u == v:
+            tree_path_length_attribute[(u,v)] = (0, 0)       
+
         else:
-            # in which case add the height of the finite node
-            sum_of_edge_lengths += abs(max(h1, h2))
-        current_node = successor_node
-        path_length += 1
+            # make the tree easier to traverse
+            T_directed = as_directed_tree(T, root_to_leaf=False)
+            hu = T_directed.nodes[u]["height"]
+            hv = T_directed.nodes[v]["height"]
+            if not hu < hv:
+                u, v = v, u
 
-    return path_length, sum_of_edge_lengths
+            # iterate towards root from u along successor nodes
+            current_node = u
+            path_length = 0
+            sum_of_edge_lengths = 0
+            while current_node != v:
+                try:
+                    successor_node = list(T_directed.successors(current_node))[0]
+                    h1 = T_directed.nodes[current_node]["height"]
+                    h2 = T_directed.nodes[successor_node]["height"]
+                    if np.all(np.isfinite([h1, h2])):
+                        # leaves in discrete merge trees might have height -inf
+                        sum_of_edge_lengths += abs(h2-h1)
+                    else:
+                        # in which case add the height of the finite node
+                        sum_of_edge_lengths += abs(max(h1, h2))
+                    path_length += 1
+                    current_node = successor_node
+                except IndexError as err:
+                    print("ERROR: could not trace a path from u to v in the tree")
+                    path_length, sum_of_edge_lengths = 0, 0
+                    break
+
+            tree_path_length_attribute[(u,v)] = (path_length, sum_of_edge_lengths)
+
+    return tree_path_length_attribute[(u, v)]
 
 
-@lru_cache
-def leaf_pair_path_length_vector(T: nx.Graph, offset=1, normalise=True) -> np.array:
+# @lru_cache
+def leaf_pair_path_length_vector(T, lcas, normalise=True) -> np.array:
     """Arrays of path lengths in T from leaf i to leaf i+offset."""
-
-    # get the leaf pairs from the offset
-    leaf_pairs = tree_offset_leaf_pairs(T, offset=offset)
-
-    if len(leaf_pairs) < 1:
-        return np.array([]), np.array([])
-
-    # find the lowest common ancestors
-    lcas = tree_lcas(T, tuple(leaf_pairs))
 
     # use the lcas to find the leaf-to-leaf path lengths
     # use column 1 for the edge count, column 2 for the sum of edge lengths
@@ -94,24 +108,19 @@ def leaf_pair_path_length_vector(T: nx.Graph, offset=1, normalise=True) -> np.ar
         path_lengths[i] += tree_path_length(T, v, lca)
 
     # Normalise if required
-    if normalise:
-        path_lengths = path_lengths / np.sum(path_lengths, axis=0)
+    edge_sum, weight_sum = np.sum(path_lengths, axis=0)
+    if normalise and (edge_sum > 0):
+        path_lengths[:,0] /= edge_sum
+    if normalise and (weight_sum > 0):
+        path_lengths[:,1] /= weight_sum
 
     return path_lengths.T[0], path_lengths.T[1]
 
 
-@lru_cache
-def leaf_pair_path_cophenetic_vector(T: nx.Graph, offset=1, normalise=True) -> np.array:
+# @lru_cache
+def leaf_pair_path_cophenetic_vector(T, lcas, normalise=True) -> np.array:
     """Arrays of path lengths in T from lca of leaves (i, i+offset) to root."""
 
-    # get the leaf pairs from the offset
-    leaf_pairs = tree_offset_leaf_pairs(T, offset=offset)
-
-    if len(leaf_pairs) < 1:
-        return np.array([]), np.array([])
-
-    # find the lowest common ancestors and root
-    lcas = tree_lcas(T, tuple(leaf_pairs))
     root = get_root(T)
 
     # use the lcas to find the cophenetic distances
@@ -143,25 +152,30 @@ def distribution_vec(samples, dim=25, min_val=0, max_val=1, rescale=True):
 def get_offset_divergences(offset, tsmt=None, histogram_dim=25):
     """Measures of difference between offset leaf pairs in a time series merge tree."""
 
-    # normalised path length vectors in the tree for the given offset
-    try:
-        plv1 = leaf_pair_path_length_vector(tsmt.merge_tree, offset=offset)[0]
-        plv2 = leaf_pair_path_length_vector(
-            make_increasing(tsmt.superlevel_merge_tree), offset=offset
-        )[0]
-        pwv1 = leaf_pair_path_length_vector(tsmt.merge_tree, offset=offset)[1]
-        pwv2 = leaf_pair_path_length_vector(
-            make_increasing(tsmt.superlevel_merge_tree), offset=offset
-        )[1]
-    except Exception as err:
-        # Failed for this merge tree. Skip it.
-        print("ERROR: could not compute vector for some reason.")
-        print(offset, tsmt.time_series, histogram_dim)
-        message = getattr(err, "message", repr(err))
-        print(message)
-        return np.zeros(40)
+    T1 = tsmt.merge_tree
+    T2 = make_increasing(tsmt.superlevel_merge_tree)
 
-    if len(plv1) < 1 or len(plv2) < 1 or len(pwv1) < 1 or len(pwv2) < 1:
+    leaf_pairs1 = tree_offset_leaf_pairs(T1, offset=offset)
+    leaf_pairs2 = tree_offset_leaf_pairs(T2, offset=offset)
+
+    if len(leaf_pairs1) < 1 or len(leaf_pairs2) < 1 or len(leaf_pairs1) != len(leaf_pairs2):
+        print("ERROR: found different number of offset leaf pairs for the superlevel and sublevel trees")
+        return np.zeros(40)
+    
+    lcas1 = tree_lcas(T1, tuple(leaf_pairs1))
+    lcas2 = tree_lcas(T2, tuple(leaf_pairs2))
+
+    lcas1 = tuple(lcas1)
+    lcas2 = tuple(lcas2)
+
+    # normalised path length vectors in the tree for the given offset
+    plv1 = leaf_pair_path_length_vector(T1, lcas1)[0]
+    plv2 = leaf_pair_path_length_vector(T2, lcas2)[0]
+    pwv1 = leaf_pair_path_length_vector(T1, lcas1)[1]
+    pwv2 = leaf_pair_path_length_vector(T2, lcas2)[1]
+
+    if len(plv1) < 1 or len(plv2) < 1 or len(pwv1) < 1 or len(pwv2) < 1 or len(plv1) != len(plv2) or len(pwv1) != len(pwv2):
+        print("ERROR: vectors of different lengths")
         return np.zeros(40)
 
     # lp distances between path length vectors
@@ -195,14 +209,10 @@ def get_offset_divergences(offset, tsmt=None, histogram_dim=25):
     pwv_hist_linf = 0 if len(pwv1_hist) == 0 else np.linalg.norm(pwv1_hist - pwv2_hist, ord=np.inf)
 
     # normalised cophenetic vectors in the tree for the given offset
-    colv1 = leaf_pair_path_cophenetic_vector(tsmt.merge_tree, offset=offset)[0]
-    colv2 = leaf_pair_path_cophenetic_vector(
-        make_increasing(tsmt.superlevel_merge_tree), offset=offset
-    )[0]
-    cowv1 = leaf_pair_path_cophenetic_vector(tsmt.merge_tree, offset=offset)[1]
-    cowv2 = leaf_pair_path_cophenetic_vector(
-        make_increasing(tsmt.superlevel_merge_tree), offset=offset
-    )[1]
+    colv1 = leaf_pair_path_cophenetic_vector(T1, lcas1)[0]
+    colv2 = leaf_pair_path_cophenetic_vector(T2, lcas2)[0]
+    cowv1 = leaf_pair_path_cophenetic_vector(T1, lcas1)[1]
+    cowv2 = leaf_pair_path_cophenetic_vector(T2, lcas2)[1]
 
     # lp distances between path length vectors
     colv_l1 = np.linalg.norm(colv1 - colv2, ord=1)
