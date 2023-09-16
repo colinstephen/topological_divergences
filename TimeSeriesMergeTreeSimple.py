@@ -48,7 +48,6 @@ def merge_tree(arr):
     `idx`. Height gives the filtration value at the node and `idx` gives the
     corresponding index of the node in `array`.
     """
-    arr = perturb_array(arr)
 
     # Sort the array but keep original indices
     sorted_indices = sorted(range(len(arr)), key=lambda k: arr[k])
@@ -374,7 +373,7 @@ class TimeSeriesMergeTree:
         THRESHES=[None, 0.1],
         DISTRIBUTION_VECTOR_LENGTH=100,
     ) -> None:
-        self.time_series = np.array(time_series)
+        self.time_series = perturb_array(time_series)
         self.discrete = discrete
         if not self.discrete:
             self.time_series = monotonize(time_series)
