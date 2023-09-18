@@ -10,8 +10,8 @@ tseriesChaos = importr("tseriesChaos")
 
 def kantz_estimator(
     ts,
-    theiler_window=5,
-    k_neighbours=2,
+    theiler_window=6,
+    k_neighbours=3,
     max_num_points=400,
     num_iterations=20,
     neighbour_radius=1.1,
@@ -51,10 +51,10 @@ def safe_lyap(func):
     return wrapper
 
 
-def get_classic_estimates(time_series):
+def get_classic_estimates(time_series, kantz_k_neighbours=3):
     rosenstein_estimate = safe_lyap(lyap_r)(time_series)
     eckmann_estimate = max(safe_lyap(lyap_e)(time_series))
-    kantz_estimate = safe_lyap(kantz_estimator)(robjects.FloatVector(time_series))
+    kantz_estimate = safe_lyap(kantz_estimator)(robjects.FloatVector(time_series), k_neighbours=kantz_k_neighbours)
     return np.array([rosenstein_estimate, eckmann_estimate, kantz_estimate])
 
 classic_names = ["Rosenstein", "Eckmann", "Kantz"]
