@@ -21,7 +21,7 @@ def DistanceMatrix(A):
     D = np.zeros((N,N))
 
     A_sp[A_sp > 0] = 1
-    G = nx.from_numpy_matrix(A_sp)
+    G = nx.from_numpy_array(A_sp)
     lengths = dict(nx.all_pairs_shortest_path_length(G))    
     for i in range(N-1):
         for j in range(i+1, N):
