@@ -30,4 +30,4 @@ def get_crocker_estimates(
 
     return np.array([betti_vec_norm_0D, betti_vec_norm_1D])
 
-crocker_names = ["0-Betti vector norm", "1-Betti vector norm"]
+crocker_names = ["0d Betti vector norm", "1d Betti vector norm"]
