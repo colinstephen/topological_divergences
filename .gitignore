@@ -4,3 +4,4 @@ venv/
 test.ipynb
 outputs/data/old/
 outputs/figures/old/
+cachedir/

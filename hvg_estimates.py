@@ -37,4 +37,4 @@ def get_hvg_estimates(time_series):
 
     return np.array([ell1_delta, ell2_delta, ellinf_delta, wass_delta])
 
-hvg_names = ["HVG L1(P^-(k), P^+(k))", "HVG L2(P^-(k), P^+(k))", "HVG Linf(P^-(k), P^+(k))", "HVG W(P^-(k), P^+(k))"]
+hvg_names = ["HVG L1", "HVG L2", "HVG Linf", "HVG Wasserstein"]
