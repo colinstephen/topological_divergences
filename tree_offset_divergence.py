@@ -1,11 +1,12 @@
 import networkx as nx
 import numpy as np
-from functools import lru_cache
+from functools import lru_cache, partial
 from sklearn.preprocessing import MinMaxScaler
 from TimeSeriesMergeTreeSimple import as_directed_tree
 from TimeSeriesMergeTreeSimple import get_root
 from TimeSeriesMergeTreeSimple import tree_leaves
 from TimeSeriesMergeTreeSimple import make_increasing
+from TimeSeriesMergeTreeSimple import TimeSeriesMergeTree as TSMT
 from scipy.stats import wasserstein_distance
 
 
@@ -331,3 +332,9 @@ div_names = [
     "cophenetic_weight_hist_l2",
     "cophenetic_weight_hist_linf",
 ]
+
+def get_offset_divergences_vec(time_series, offsets=range(1,502,50), histogram_dim=50, discrete=True):
+    tsmt = TSMT(time_series, discrete=discrete)
+    offset_divergence_func = partial(get_offset_divergences, tsmt=tsmt, histogram_dim=histogram_dim)
+    vec = list(map(offset_divergence_func, offsets))
+    return np.array(vec).T
