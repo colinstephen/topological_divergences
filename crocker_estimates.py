@@ -12,7 +12,7 @@ def get_crocker_estimates(
     embedding = takens(time_series)
 
     # compute embedded persistence diagrams
-    embedded_pds = ripser(embedding)
+    embedded_pds = ripser(embedding, thresh=1)
     embedded_pd_0D = embedded_pds["dgms"][0]
     embedded_pd_1D = embedded_pds["dgms"][1]
 
