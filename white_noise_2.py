@@ -1,7 +1,7 @@
 # %%
 BASELINES=False  # compute the classic and TDA baselines
 DISCRETE=True  # discrete or piecewise linear merge tree
-OFFSET_MIN, OFFSET_MAX, OFFSET_STEP = 1, 252, 25  # merge tree offset range
+OFFSET_MIN, OFFSET_MAX, OFFSET_STEP = 1, 252, 5  # merge tree offset range
 SEED = 54321  # consistent random number generation
 SAMPLES = 5000  # number of trajectories for training
 TEST_SAMPLES = 1001  # number of trajectories for testing
@@ -11,7 +11,7 @@ SYSTEM = "tinkerbell"
 # %%
 # Provide clients to an ipyparallel cluster for faster parallel processing
 from ipyparallel import Client
-clients = Client(profile="testprofile")
+clients = Client(profile="default")
 dv = clients.direct_view()
 lbv = clients.load_balanced_view()
 

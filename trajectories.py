@@ -14,7 +14,7 @@ from IkedaMapLCE import ikeda_lce
 from TinkerbellMapLCE import tinkerbell_lce
 
 import ipyparallel as ipp
-clients = ipp.Client()
+clients = ipp.Client(profile="default")
 dv = clients.direct_view()
 lbv = clients.load_balanced_view()
 
